@@ -24,7 +24,7 @@ export default async function DashboardLayout({
   const roleName = user.role.name
 
   return (
-    <div className="min-h-screen" style={{ background: 'oklch(0.12 0.03 50)' }}>
+    <div className="min-h-screen bg-background">
       {/* Desktop sidebar */}
       <Sidebar businessName={businessName} userName={userName} roleName={roleName} />
 

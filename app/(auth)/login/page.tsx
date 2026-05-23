@@ -103,18 +103,8 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden bg-background">
-      {/* Ambient glow */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-0"
-        style={{
-          background:
-            'radial-gradient(ellipse 70% 50% at 20% 10%, color-mix(in oklch, var(--primary) 15%, transparent) 0%, transparent 60%), radial-gradient(ellipse 50% 40% at 80% 80%, color-mix(in oklch, var(--secondary) 10%, transparent) 0%, transparent 60%)',
-        }}
-      />
-
-      <div className="relative z-10 w-full max-w-sm">
+    <main className="min-h-screen flex items-center justify-center px-4 bg-background">
+      <div className="w-full max-w-sm">
         {/* Logo / Brand */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 shadow-lg bg-primary">
