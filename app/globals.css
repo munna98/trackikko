@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', sans-serif;
+
+  /* Coffee / Amber Brand Palette */
+  --color-background: oklch(0.12 0.03 50);
+  --color-foreground: oklch(0.94 0.03 75);
+  --color-card: oklch(0.17 0.04 45);
+  --color-card-foreground: oklch(0.94 0.03 75);
+  --color-popover: oklch(0.17 0.04 45);
+  --color-popover-foreground: oklch(0.94 0.03 75);
+  --color-primary: oklch(0.76 0.14 75);
+  --color-primary-foreground: oklch(0.12 0.03 50);
+  --color-secondary: oklch(0.24 0.05 45);
+  --color-secondary-foreground: oklch(0.94 0.03 75);
+  --color-muted: oklch(0.22 0.04 48);
+  --color-muted-foreground: oklch(0.65 0.05 65);
+  --color-accent: oklch(0.28 0.06 50);
+  --color-accent-foreground: oklch(0.94 0.03 75);
+  --color-destructive: oklch(0.55 0.22 25);
+  --color-destructive-foreground: oklch(0.98 0.01 0);
+  --color-border: oklch(0.28 0.05 50);
+  --color-input: oklch(0.28 0.05 50);
+  --color-ring: oklch(0.76 0.14 75);
+  --color-sidebar: oklch(0.15 0.04 45);
+  --color-sidebar-foreground: oklch(0.90 0.03 70);
+  --color-sidebar-border: oklch(0.25 0.05 48);
+  --color-sidebar-accent: oklch(0.22 0.05 50);
+  --color-sidebar-accent-foreground: oklch(0.94 0.03 75);
+  --color-sidebar-primary: oklch(0.76 0.14 75);
+  --color-sidebar-primary-foreground: oklch(0.12 0.03 50);
+
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+    outline-color: var(--color-ring);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-background);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-muted-foreground);
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+}

@@ -1,0 +1,653 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum TrackingUnit {
+  hours
+  trips
+  km
+  @@map("tracking_unit")
+}
+
+enum MachineMode {
+  bucket
+  breaking
+  @@map("machine_mode")
+}
+
+enum RateTypeEnum {
+  per_hour
+  per_trip
+  @@map("rate_type_enum")
+}
+
+enum AccountType {
+  cash
+  bank
+  @@map("account_type")
+}
+
+enum ExpenseAppliesTo {
+  machine
+  staff
+  other
+  @@map("expense_applies_to")
+}
+
+enum LedgerEntryType {
+  debit
+  credit
+  @@map("ledger_entry_type")
+}
+
+enum LedgerTransactionType {
+  job
+  expense
+  salary_advance
+  party_advance
+  party_settlement
+  party_writeoff
+  staff_payment
+  oil_change
+  emi_payment
+  @@map("ledger_transaction_type")
+}
+
+enum EmiStatus {
+  active
+  closed
+  @@map("emi_status")
+}
+
+enum AuditAction {
+  INSERT
+  UPDATE
+  DELETE
+  @@map("audit_action")
+}
+
+model UserRole {
+  id          String  @id
+  name        String  @unique
+  description String?
+  users       User[]
+  @@map("user_roles")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  mobile    String?
+  avatarUrl String?  @map("avatar_url")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  roleId     String   @map("role_id")
+  role       UserRole @relation(fields: [roleId], references: [id])
+
+  businessId String?   @map("business_id")
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  address        String?
+  bloodGroup     String?  @map("blood_group")
+  designation    String?
+  defaultBatha   Decimal  @default(0) @map("default_batha") @db.Decimal
+  salary         Decimal  @default(0) @db.Decimal
+  advanceBalance Decimal  @default(0) @map("advance_balance") @db.Decimal
+
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy String?   @map("deleted_by")
+
+  jobsHandled      Job[]             @relation("OperatorJobs")
+  jobsRecorded     Job[]             @relation("JobRecorder")
+  expenses         Expense[]         @relation("ExpenseStaff")
+  expensesRecorded Expense[]         @relation("ExpenseRecorder")
+  oilChangeLogs    OilChangeLog[]
+  emiPayments      EmiPayment[]
+  salaryAdvances   SalaryAdvance[]   @relation("SalaryAdvanceStaff")
+  salaryRecorded   SalaryAdvance[]   @relation("SalaryAdvanceRecorder")
+  partyAdvances    PartyAdvance[]    @relation("OperatorAdvances")
+  partySettlements PartySettlement[]
+  staffPayments    StaffPayment[]    @relation("StaffPaymentStaff")
+  staffPayRecorded StaffPayment[]    @relation("StaffPaymentRecorder")
+  ledgerEntries    LedgerEntry[]     @relation("LedgerStaff")
+  ledgerRecorded   LedgerEntry[]     @relation("LedgerRecorder")
+  auditLogs        AuditLog[]
+
+  @@index([businessId], map: "idx_users_business_id")
+  @@index([roleId], map: "idx_users_role_id")
+  @@map("users")
+}
+
+model Business {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  address   String?
+  phone     String?
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy String?   @map("deleted_by") @db.Uuid
+
+  users              User[]
+  machineTypes       MachineType[]
+  machines           Machine[]
+  machineEmis        MachineEmi[]
+  oilChangeSchedules OilChangeSchedule[]
+  oilChangeLogs      OilChangeLog[]
+  accounts           Account[]
+  parties            Party[]
+  sites              Site[]
+  rateCards          RateCard[]
+  expenseCategories  ExpenseCategory[]
+  jobs               Job[]
+  expenses           Expense[]
+  emiPayments        EmiPayment[]
+  salaryAdvances     SalaryAdvance[]
+  partyAdvances      PartyAdvance[]
+  partySettlements   PartySettlement[]
+  staffPayments      StaffPayment[]
+  ledgerEntries      LedgerEntry[]
+  auditLogs          AuditLog[]
+
+  @@map("businesses")
+}
+
+model MachineType {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId   String?      @map("business_id") @db.Uuid
+  name         String
+  trackingUnit TrackingUnit @map("tracking_unit")
+  hasModes     Boolean      @default(false) @map("has_modes")
+  isBillable   Boolean      @default(true) @map("is_billable")
+  isActive     Boolean      @default(true) @map("is_active")
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime     @default(now()) @map("updated_at") @db.Timestamptz
+  deletedAt    DateTime?    @map("deleted_at") @db.Timestamptz
+  deletedBy    String?      @map("deleted_by") @db.Uuid
+
+  business Business? @relation(fields: [businessId], references: [id])
+  machines Machine[]
+
+  @@map("machine_types")
+}
+
+model Machine {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId          String    @map("business_id") @db.Uuid
+  machineTypeId       String    @map("machine_type_id") @db.Uuid
+  name                String
+  identifier          String?
+  capacity            String?
+  currentMeterReading Decimal   @default(0) @map("current_meter_reading") @db.Decimal
+  isActive            Boolean   @default(true) @map("is_active")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  deletedAt           DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy           String?   @map("deleted_by") @db.Uuid
+
+  business          Business           @relation(fields: [businessId], references: [id])
+  machineType       MachineType        @relation(fields: [machineTypeId], references: [id])
+  emis              MachineEmi[]
+  oilChangeSchedule OilChangeSchedule?
+  rateCards         RateCard[]
+  jobs              Job[]
+  expenses          Expense[]
+  oilChangeLogs     OilChangeLog[]
+  emiPayments       EmiPayment[]
+  ledgerEntries     LedgerEntry[]
+
+  @@unique([businessId, identifier])
+  @@index([businessId], map: "idx_machines_business_id")
+  @@index([machineTypeId], map: "idx_machines_machine_type_id")
+  @@map("machines")
+}
+
+model MachineEmi {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId        String    @map("business_id") @db.Uuid
+  machineId         String    @map("machine_id") @db.Uuid
+  financierName     String    @map("financier_name")
+  monthlyAmount     Decimal   @map("monthly_amount") @db.Decimal
+  totalInstallments Int       @map("total_installments")
+  installmentsPaid  Int       @default(0) @map("installments_paid")
+  startDate         DateTime  @map("start_date") @db.Date
+  status            EmiStatus @default(active)
+  isActive          Boolean   @default(true) @map("is_active")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy         String?   @map("deleted_by") @db.Uuid
+
+  business    Business     @relation(fields: [businessId], references: [id])
+  machine     Machine      @relation(fields: [machineId], references: [id])
+  emiPayments EmiPayment[]
+
+  @@index([businessId], map: "idx_machine_emis_business_id")
+  @@index([machineId], map: "idx_machine_emis_machine_id")
+  @@map("machine_emis")
+}
+
+model OilChangeSchedule {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId           String    @map("business_id") @db.Uuid
+  machineId            String    @unique @map("machine_id") @db.Uuid
+  intervalUnits        Decimal   @map("interval_units") @db.Decimal
+  lastChangedAtReading Decimal   @map("last_changed_at_reading") @db.Decimal
+  lastChangedDate      DateTime  @map("last_changed_date") @db.Date
+  alertBeforeUnits     Decimal?  @default(20) @map("alert_before_units") @db.Decimal
+  notes                String?
+  isActive             Boolean   @default(true) @map("is_active")
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  deletedAt            DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy            String?   @map("deleted_by") @db.Uuid
+
+  business Business @relation(fields: [businessId], references: [id])
+  machine  Machine  @relation(fields: [machineId], references: [id])
+
+  @@map("oil_change_schedules")
+}
+
+model Account {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId     String      @map("business_id") @db.Uuid
+  name           String
+  type           AccountType
+  openingBalance Decimal     @default(0) @map("opening_balance") @db.Decimal
+  currentBalance Decimal     @default(0) @map("current_balance") @db.Decimal
+  isActive       Boolean     @default(true) @map("is_active")
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime    @default(now()) @map("updated_at") @db.Timestamptz
+  deletedAt      DateTime?   @map("deleted_at") @db.Timestamptz
+  deletedBy      String?     @map("deleted_by") @db.Uuid
+
+  business         Business          @relation(fields: [businessId], references: [id])
+  expenses         Expense[]
+  oilChangeLogs    OilChangeLog[]
+  emiPayments      EmiPayment[]
+  salaryAdvances   SalaryAdvance[]
+  partyAdvances    PartyAdvance[]
+  partySettlements PartySettlement[]
+  staffPayments    StaffPayment[]
+  ledgerEntries    LedgerEntry[]
+
+  @@unique([businessId, name])
+  @@index([businessId], map: "idx_accounts_business_id")
+  @@map("accounts")
+}
+
+model Party {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId     String    @map("business_id") @db.Uuid
+  name           String
+  mobile         String?
+  address        String?
+  gstNo          String?   @map("gst_no")
+  openingBalance Decimal   @default(0) @map("opening_balance") @db.Decimal
+  runningBalance Decimal   @default(0) @map("running_balance") @db.Decimal
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy      String?   @map("deleted_by") @db.Uuid
+
+  business         Business          @relation(fields: [businessId], references: [id])
+  sites            Site[]
+  rateCards        RateCard[]
+  partyAdvances    PartyAdvance[]
+  partySettlements PartySettlement[]
+  ledgerEntries    LedgerEntry[]
+
+  @@index([businessId], map: "idx_parties_business_id")
+  @@map("parties")
+}
+
+model Site {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId String    @map("business_id") @db.Uuid
+  partyId    String    @map("party_id") @db.Uuid
+  name       String
+  location   String?
+  isActive   Boolean   @default(true) @map("is_active")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy  String?   @map("deleted_by") @db.Uuid
+
+  business  Business   @relation(fields: [businessId], references: [id])
+  party     Party      @relation(fields: [partyId], references: [id])
+  rateCards RateCard[]
+  jobs      Job[]
+
+  @@index([businessId], map: "idx_sites_business_id")
+  @@index([partyId], map: "idx_sites_party_id")
+  @@map("sites")
+}
+
+model RateCard {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId    String       @map("business_id") @db.Uuid
+  machineId     String       @map("machine_id") @db.Uuid
+  partyId       String       @map("party_id") @db.Uuid
+  siteId        String?      @map("site_id") @db.Uuid
+  mode          MachineMode?
+  rateType      RateTypeEnum @map("rate_type")
+  rate          Decimal      @db.Decimal
+  effectiveFrom DateTime     @default(now()) @map("effective_from") @db.Date
+  isActive      Boolean      @default(true) @map("is_active")
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime     @default(now()) @map("updated_at") @db.Timestamptz
+  deletedAt     DateTime?    @map("deleted_at") @db.Timestamptz
+  deletedBy     String?      @map("deleted_by") @db.Uuid
+
+  business Business @relation(fields: [businessId], references: [id])
+  machine  Machine  @relation(fields: [machineId], references: [id])
+  party    Party    @relation(fields: [partyId], references: [id])
+  site     Site?    @relation(fields: [siteId], references: [id])
+
+  @@unique([machineId, partyId, siteId, mode, effectiveFrom])
+  @@index([businessId], map: "idx_rate_cards_business_id")
+  @@index([machineId], map: "idx_rate_cards_machine_id")
+  @@index([partyId], map: "idx_rate_cards_party_id")
+  @@index([siteId], map: "idx_rate_cards_site_id")
+  @@map("rate_cards")
+}
+
+model ExpenseCategory {
+  id         String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId String?           @map("business_id") @db.Uuid
+  name       String
+  appliesTo  ExpenseAppliesTo? @map("applies_to")
+  isActive   Boolean           @default(true) @map("is_active")
+  createdAt  DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime          @default(now()) @map("updated_at") @db.Timestamptz
+  deletedAt  DateTime?         @map("deleted_at") @db.Timestamptz
+  deletedBy  String?           @map("deleted_by") @db.Uuid
+
+  business Business? @relation(fields: [businessId], references: [id])
+  expenses Expense[]
+
+  @@map("expense_categories")
+}
+
+model Job {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId     String       @map("business_id") @db.Uuid
+  machineId      String       @map("machine_id") @db.Uuid
+  staffId        String       @map("staff_id")
+  siteId         String       @map("site_id") @db.Uuid
+  date           DateTime     @db.Date
+  startReading   Decimal?     @map("start_reading") @db.Decimal
+  closingReading Decimal?     @map("closing_reading") @db.Decimal
+  tripCount      Int?         @map("trip_count")
+  quantity       Decimal      @db.Decimal
+  mode           MachineMode?
+  rateType       RateTypeEnum @map("rate_type")
+  rateCardRate   Decimal?     @map("rate_card_rate") @db.Decimal
+  actualRate     Decimal      @map("actual_rate") @db.Decimal
+  amount         Decimal      @db.Decimal
+  batha          Decimal      @default(0) @db.Decimal
+  recordedBy     String?      @map("recorded_by")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime     @default(now()) @map("updated_at") @db.Timestamptz
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz
+  deletedBy      String?      @map("deleted_by")
+
+  business Business @relation(fields: [businessId], references: [id])
+  machine  Machine  @relation(fields: [machineId], references: [id])
+  staff    User     @relation("OperatorJobs", fields: [staffId], references: [id])
+  site     Site     @relation(fields: [siteId], references: [id])
+  recorder User?    @relation("JobRecorder", fields: [recordedBy], references: [id])
+
+  @@index([businessId], map: "idx_jobs_business_id")
+  @@index([machineId], map: "idx_jobs_machine_id")
+  @@index([staffId], map: "idx_jobs_staff_id")
+  @@index([siteId], map: "idx_jobs_site_id")
+  @@index([date], map: "idx_jobs_date")
+  @@map("jobs")
+}
+
+model Expense {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId        String    @map("business_id") @db.Uuid
+  expenseCategoryId String    @map("expense_category_id") @db.Uuid
+  date              DateTime  @db.Date
+  machineId         String?   @map("machine_id") @db.Uuid
+  staffId           String?   @map("staff_id")
+  quantity          Decimal?  @db.Decimal
+  unitPrice         Decimal?  @map("unit_price") @db.Decimal
+  amount            Decimal   @db.Decimal
+  accountId         String    @map("account_id") @db.Uuid
+  notes             String?
+  recordedBy        String?   @map("recorded_by")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy         String?   @map("deleted_by")
+
+  business        Business        @relation(fields: [businessId], references: [id])
+  expenseCategory ExpenseCategory @relation(fields: [expenseCategoryId], references: [id])
+  machine         Machine?        @relation(fields: [machineId], references: [id])
+  staff           User?           @relation("ExpenseStaff", fields: [staffId], references: [id])
+  account         Account         @relation(fields: [accountId], references: [id])
+  recorder        User?           @relation("ExpenseRecorder", fields: [recordedBy], references: [id])
+
+  @@index([businessId], map: "idx_expenses_business_id")
+  @@index([machineId], map: "idx_expenses_machine_id")
+  @@index([staffId], map: "idx_expenses_staff_id")
+  @@index([expenseCategoryId], map: "idx_expenses_category_id")
+  @@index([date], map: "idx_expenses_date")
+  @@map("expenses")
+}
+
+model OilChangeLog {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId      String    @map("business_id") @db.Uuid
+  machineId       String    @map("machine_id") @db.Uuid
+  date            DateTime  @db.Date
+  readingAtChange Decimal   @map("reading_at_change") @db.Decimal
+  oilType         String?   @map("oil_type")
+  cost            Decimal?  @db.Decimal
+  accountId       String?   @map("account_id") @db.Uuid
+  notes           String?
+  recordedBy      String?   @map("recorded_by")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy       String?   @map("deleted_by")
+
+  business Business @relation(fields: [businessId], references: [id])
+  machine  Machine  @relation(fields: [machineId], references: [id])
+  account  Account? @relation(fields: [accountId], references: [id])
+  recorder User?    @relation(fields: [recordedBy], references: [id])
+
+  @@index([machineId], map: "idx_oil_change_logs_machine_id")
+  @@map("oil_change_logs")
+}
+
+model EmiPayment {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId        String    @map("business_id") @db.Uuid
+  machineEmiId      String    @map("machine_emi_id") @db.Uuid
+  machineId         String    @map("machine_id") @db.Uuid
+  date              DateTime  @db.Date
+  amount            Decimal   @db.Decimal
+  installmentNumber Int       @map("installment_number")
+  accountId         String    @map("account_id") @db.Uuid
+  notes             String?
+  recordedBy        String?   @map("recorded_by")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy         String?   @map("deleted_by")
+
+  business   Business   @relation(fields: [businessId], references: [id])
+  machineEmi MachineEmi @relation(fields: [machineEmiId], references: [id])
+  machine    Machine    @relation(fields: [machineId], references: [id])
+  account    Account    @relation(fields: [accountId], references: [id])
+  recorder   User?      @relation(fields: [recordedBy], references: [id])
+
+  @@index([machineEmiId], map: "idx_emi_payments_machine_emi_id")
+  @@map("emi_payments")
+}
+
+model SalaryAdvance {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId String    @map("business_id") @db.Uuid
+  staffId    String    @map("staff_id")
+  date       DateTime  @db.Date
+  amount     Decimal   @db.Decimal
+  accountId  String    @map("account_id") @db.Uuid
+  notes      String?
+  recordedBy String?   @map("recorded_by")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy  String?   @map("deleted_by")
+
+  business Business @relation(fields: [businessId], references: [id])
+  staff    User     @relation("SalaryAdvanceStaff", fields: [staffId], references: [id])
+  account  Account  @relation(fields: [accountId], references: [id])
+  recorder User?    @relation("SalaryAdvanceRecorder", fields: [recordedBy], references: [id])
+
+  @@index([staffId], map: "idx_salary_advances_staff_id")
+  @@map("salary_advances")
+}
+
+model PartyAdvance {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId String    @map("business_id") @db.Uuid
+  partyId    String    @map("party_id") @db.Uuid
+  date       DateTime  @db.Date
+  amount     Decimal   @db.Decimal
+  accountId  String    @map("account_id") @db.Uuid
+  notes      String?
+  recordedBy String?   @map("recorded_by")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy  String?   @map("deleted_by")
+
+  business Business @relation(fields: [businessId], references: [id])
+  party    Party    @relation(fields: [partyId], references: [id])
+  account  Account  @relation(fields: [accountId], references: [id])
+  recorder User?    @relation("OperatorAdvances", fields: [recordedBy], references: [id])
+
+  @@index([partyId], map: "idx_party_advances_party_id")
+  @@map("party_advances")
+}
+
+model PartySettlement {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId     String    @map("business_id") @db.Uuid
+  partyId        String    @map("party_id") @db.Uuid
+  date           DateTime  @db.Date
+  balanceBefore  Decimal   @map("balance_before") @db.Decimal
+  amountReceived Decimal   @map("amount_received") @db.Decimal
+  writeoffAmount Decimal?  @default(0) @map("writeoff_amount") @db.Decimal
+  accountId      String    @map("account_id") @db.Uuid
+  notes          String?
+  recordedBy     String?   @map("recorded_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy      String?   @map("deleted_by")
+
+  business Business @relation(fields: [businessId], references: [id])
+  party    Party    @relation(fields: [partyId], references: [id])
+  account  Account  @relation(fields: [accountId], references: [id])
+  recorder User?    @relation(fields: [recordedBy], references: [id])
+
+  @@index([partyId], map: "idx_party_settlements_party_id")
+  @@map("party_settlements")
+}
+
+model StaffPayment {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId       String    @map("business_id") @db.Uuid
+  staffId          String    @map("staff_id")
+  periodFrom       DateTime  @map("period_from") @db.Date
+  periodTo         DateTime  @map("period_to") @db.Date
+  daysWorked       Int       @map("days_worked")
+  bathaTotal       Decimal?  @default(0) @map("batha_total") @db.Decimal
+  salary           Decimal   @db.Decimal
+  advancesDeducted Decimal?  @default(0) @map("advances_deducted") @db.Decimal
+  netPaid          Decimal   @map("net_paid") @db.Decimal
+  accountId        String    @map("account_id") @db.Uuid
+  notes            String?
+  recordedBy       String?   @map("recorded_by")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy        String?   @map("deleted_by")
+
+  business Business @relation(fields: [businessId], references: [id])
+  staff    User     @relation("StaffPaymentStaff", fields: [staffId], references: [id])
+  account  Account  @relation(fields: [accountId], references: [id])
+  recorder User?    @relation("StaffPaymentRecorder", fields: [recordedBy], references: [id])
+
+  @@index([staffId], map: "idx_staff_payments_staff_id")
+  @@map("staff_payments")
+}
+
+model LedgerEntry {
+  id          String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId  String                @map("business_id") @db.Uuid
+  date        DateTime              @db.Date
+  type        LedgerTransactionType
+  referenceId String                @map("reference_id") @db.Uuid
+  accountId   String?               @map("account_id") @db.Uuid
+  partyId     String?               @map("party_id") @db.Uuid
+  staffId     String?               @map("staff_id")
+  machineId   String?               @map("machine_id") @db.Uuid
+  entryType   LedgerEntryType       @map("entry_type")
+  amount      Decimal               @db.Decimal
+  description String?
+  recordedBy  String?               @map("recorded_by")
+  createdAt   DateTime              @default(now()) @map("created_at") @db.Timestamptz
+
+  business Business @relation(fields: [businessId], references: [id])
+  account  Account? @relation(fields: [accountId], references: [id])
+  party    Party?   @relation(fields: [partyId], references: [id])
+  staff    User?    @relation("LedgerStaff", fields: [staffId], references: [id])
+  machine  Machine? @relation(fields: [machineId], references: [id])
+  recorder User?    @relation("LedgerRecorder", fields: [recordedBy], references: [id])
+
+  @@index([businessId], map: "idx_ledger_business_id")
+  @@index([date], map: "idx_ledger_date")
+  @@index([accountId], map: "idx_ledger_account_id")
+  @@index([partyId], map: "idx_ledger_party_id")
+  @@index([staffId], map: "idx_ledger_staff_id")
+  @@index([machineId], map: "idx_ledger_machine_id")
+  @@map("ledger_entries")
+}
+
+model AuditLog {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  businessId    String?     @map("business_id") @db.Uuid
+  tableName     String      @map("table_name")
+  recordId      String      @map("record_id") @db.Uuid
+  action        AuditAction
+  changedBy     String?     @map("changed_by")
+  changedByName String?     @map("changed_by_name")
+  role          String?
+  previousData  Json?       @map("previous_data")
+  newData       Json?       @map("new_data")
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz
+
+  business      Business? @relation(fields: [businessId], references: [id])
+  changedByUser User?     @relation(fields: [changedBy], references: [id])
+
+  @@index([businessId, tableName, recordId], map: "idx_audit_business_table_record")
+  @@map("audit_logs")
+}
