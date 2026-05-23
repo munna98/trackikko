@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { LogOut, User } from 'lucide-react'
 import { signOut } from '@/lib/auth'
 import { getInitials } from '@/lib/utils'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 type TopbarProps = { businessName: string; userName: string }
 
@@ -23,7 +24,10 @@ export function Topbar({ businessName, userName }: TopbarProps) {
     <header className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 h-14 bg-sidebar border-b border-sidebar-border">
       <span className="font-bold text-base text-primary">{businessName}</span>
 
-      <div ref={ref} className="relative">
+      <div className="flex items-center gap-1">
+        <ThemeToggle compact />
+
+        <div ref={ref} className="relative ml-1">
         <button id="topbar-avatar-btn" onClick={() => setOpen((v) => !v)}
           className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold bg-primary/20 text-primary"
           aria-label="User menu" aria-expanded={open}>
@@ -49,6 +53,7 @@ export function Topbar({ businessName, userName }: TopbarProps) {
             </div>
           </div>
         )}
+        </div>
       </div>
     </header>
   )

@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { LayoutDashboard, Truck, Users, Building2, ClipboardList, Receipt, BarChart3, Settings, LogOut } from 'lucide-react'
 import { signOut } from '@/lib/auth'
 import { getInitials } from '@/lib/utils'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -63,6 +64,7 @@ export function Sidebar({ businessName, userName, roleName }: SidebarProps) {
             <p className="text-sm font-semibold truncate text-sidebar-foreground">{userName}</p>
             <span className="text-xs px-1.5 py-0.5 rounded-md font-medium bg-primary/15 text-primary">{roleName}</span>
           </div>
+          <ThemeToggle compact />
         </div>
         <form action={signOut}>
           <button type="submit" id="sidebar-logout-btn"
