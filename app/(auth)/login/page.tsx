@@ -35,7 +35,6 @@ export default function LoginPage() {
     try {
       const supabase = createClient()
 
-      // Sign in with Supabase
       const { error: authError } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password,
@@ -47,7 +46,6 @@ export default function LoginPage() {
         return
       }
 
-      // Fetch user profile from DB via server action
       const response = await fetch('/api/auth/me', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -60,7 +58,13 @@ export default function LoginPage() {
         return
       }
 
-      const user = await response.json()
+      const user = await response.json() as {
+        id: string
+        email: string
+        isActive: boolean
+        roleId: string
+        businessId: string | null
+      } | null
 
       if (!user) {
         setError('Account not set up. Contact your admin.')
@@ -74,8 +78,7 @@ export default function LoginPage() {
         return
       }
 
-      // Role-based redirect
-      const roleId = user.roleId as string
+      const roleId = user.roleId
 
       if (roleId === 'master_admin') {
         router.push('/master')
@@ -92,7 +95,6 @@ export default function LoginPage() {
         return
       }
 
-      // admin or accountant
       router.push('/dashboard')
     } catch {
       setError('Something went wrong. Please try again.')
@@ -101,62 +103,41 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
-      {/* Ambient background blobs */}
+    <main className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden bg-background">
+      {/* Ambient glow */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 z-0"
         style={{
           background:
-            'radial-gradient(ellipse 80% 60% at 20% 10%, oklch(0.28 0.08 50 / 0.4) 0%, transparent 60%), radial-gradient(ellipse 60% 50% at 80% 80%, oklch(0.22 0.06 45 / 0.3) 0%, transparent 60%)',
-        }}
-      />
-
-      {/* Subtle grid overlay */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-0 opacity-5"
-        style={{
-          backgroundImage:
-            'linear-gradient(oklch(0.76 0.14 75) 1px, transparent 1px), linear-gradient(90deg, oklch(0.76 0.14 75) 1px, transparent 1px)',
-          backgroundSize: '40px 40px',
+            'radial-gradient(ellipse 70% 50% at 20% 10%, color-mix(in oklch, var(--primary) 15%, transparent) 0%, transparent 60%), radial-gradient(ellipse 50% 40% at 80% 80%, color-mix(in oklch, var(--secondary) 10%, transparent) 0%, transparent 60%)',
         }}
       />
 
       <div className="relative z-10 w-full max-w-sm">
         {/* Logo / Brand */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 shadow-lg" style={{ background: 'oklch(0.76 0.14 75)' }}>
-            <Coffee className="w-8 h-8" style={{ color: 'oklch(0.12 0.03 50)' }} />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 shadow-lg bg-primary">
+            <Coffee className="w-8 h-8 text-primary-foreground" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight" style={{ color: 'oklch(0.94 0.03 75)' }}>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
             Trackikko
           </h1>
-          <p className="text-sm mt-1" style={{ color: 'oklch(0.65 0.05 65)' }}>
+          <p className="text-sm mt-1 text-muted-foreground">
             Heavy Equipment Management
           </p>
         </div>
 
         {/* Card */}
-        <div
-          className="rounded-2xl border p-6 shadow-2xl"
-          style={{
-            background: 'oklch(0.17 0.04 45)',
-            borderColor: 'oklch(0.28 0.05 50)',
-          }}
-        >
-          <h2 className="text-lg font-semibold mb-6" style={{ color: 'oklch(0.94 0.03 75)' }}>
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-2xl">
+          <h2 className="text-lg font-semibold mb-6 text-card-foreground">
             Sign in to your account
           </h2>
 
           <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
             {/* Email */}
             <div className="space-y-1.5">
-              <label
-                htmlFor="email"
-                className="text-sm font-medium"
-                style={{ color: 'oklch(0.80 0.04 70)' }}
-              >
+              <label htmlFor="email" className="text-sm font-medium text-foreground">
                 Email address
               </label>
               <input
@@ -165,29 +146,17 @@ export default function LoginPage() {
                 autoComplete="email"
                 placeholder="you@example.com"
                 {...register('email')}
-                className="w-full rounded-lg px-3 py-2.5 text-sm outline-none transition-all focus:ring-2"
-                style={{
-                  background: 'oklch(0.22 0.04 48)',
-                  borderWidth: '1px',
-                  borderColor: errors.email ? 'oklch(0.55 0.22 25)' : 'oklch(0.28 0.05 50)',
-                  color: 'oklch(0.94 0.03 75)',
-                  '--tw-ring-color': 'oklch(0.76 0.14 75 / 0.5)',
-                } as React.CSSProperties}
+                className="w-full rounded-lg border border-input bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-all focus:ring-2 focus:ring-ring focus:border-ring"
+                style={{ borderColor: errors.email ? 'var(--destructive)' : undefined }}
               />
               {errors.email && (
-                <p className="text-xs" style={{ color: 'oklch(0.65 0.18 25)' }}>
-                  {errors.email.message}
-                </p>
+                <p className="text-xs text-destructive">{errors.email.message}</p>
               )}
             </div>
 
             {/* Password */}
             <div className="space-y-1.5">
-              <label
-                htmlFor="password"
-                className="text-sm font-medium"
-                style={{ color: 'oklch(0.80 0.04 70)' }}
-              >
+              <label htmlFor="password" className="text-sm font-medium text-foreground">
                 Password
               </label>
               <input
@@ -196,32 +165,18 @@ export default function LoginPage() {
                 autoComplete="current-password"
                 placeholder="••••••••"
                 {...register('password')}
-                className="w-full rounded-lg px-3 py-2.5 text-sm outline-none transition-all focus:ring-2"
-                style={{
-                  background: 'oklch(0.22 0.04 48)',
-                  borderWidth: '1px',
-                  borderColor: errors.password ? 'oklch(0.55 0.22 25)' : 'oklch(0.28 0.05 50)',
-                  color: 'oklch(0.94 0.03 75)',
-                  '--tw-ring-color': 'oklch(0.76 0.14 75 / 0.5)',
-                } as React.CSSProperties}
+                className="w-full rounded-lg border border-input bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-all focus:ring-2 focus:ring-ring focus:border-ring"
+                style={{ borderColor: errors.password ? 'var(--destructive)' : undefined }}
               />
               {errors.password && (
-                <p className="text-xs" style={{ color: 'oklch(0.65 0.18 25)' }}>
-                  {errors.password.message}
-                </p>
+                <p className="text-xs text-destructive">{errors.password.message}</p>
               )}
             </div>
 
             {/* Error message */}
             {error && (
               <div
-                className="rounded-lg px-3 py-2.5 text-sm"
-                style={{
-                  background: 'oklch(0.22 0.06 25 / 0.4)',
-                  borderWidth: '1px',
-                  borderColor: 'oklch(0.55 0.22 25 / 0.5)',
-                  color: 'oklch(0.75 0.15 25)',
-                }}
+                className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive"
                 role="alert"
               >
                 {error}
@@ -233,23 +188,19 @@ export default function LoginPage() {
               id="sign-in-btn"
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed mt-2"
-              style={{
-                background: loading ? 'oklch(0.65 0.10 75)' : 'oklch(0.76 0.14 75)',
-                color: 'oklch(0.12 0.03 50)',
-              }}
+              className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity duration-150 hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed mt-2"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               {loading ? 'Signing in…' : 'Sign In'}
             </button>
           </form>
 
-          <p className="text-center text-xs mt-5" style={{ color: 'oklch(0.50 0.04 60)' }}>
+          <p className="text-center text-xs mt-5 text-muted-foreground">
             Accounts are created by your administrator.
           </p>
         </div>
 
-        <p className="text-center text-xs mt-6" style={{ color: 'oklch(0.40 0.03 55)' }}>
+        <p className="text-center text-xs mt-6 text-muted-foreground/50">
           © {new Date().getFullYear()} Trackikko. All rights reserved.
         </p>
       </div>

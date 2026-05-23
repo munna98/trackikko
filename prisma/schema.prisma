@@ -93,7 +93,7 @@ model User {
   roleId     String   @map("role_id")
   role       UserRole @relation(fields: [roleId], references: [id])
 
-  businessId String?   @map("business_id")
+  businessId String?   @map("business_id") @db.Uuid
   business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   address        String?
