@@ -11,7 +11,7 @@ export default async function DashboardPage() {
   const user = await getCurrentUser()
   if (!user?.businessId) redirect('/login')
 
-  const businessId = user.businessId
+  const businessId = user.businessId!
 
   const [machineCount, staffCount, parties, accounts] = await Promise.all([
     prisma.machine.count({ where: { businessId, deletedAt: null, isActive: true } }),
@@ -20,8 +20,10 @@ export default async function DashboardPage() {
     prisma.account.findMany({ where: { businessId, deletedAt: null, isActive: true }, select: { currentBalance: true } }),
   ])
 
-  const outstanding = parties.filter(p => p.runningBalance.toNumber() > 0).reduce((s, p) => s + p.runningBalance.toNumber(), 0)
-  const cashPosition = accounts.reduce((s, a) => s + a.currentBalance.toNumber(), 0)
+  type PartyRow = (typeof parties)[number]
+  type AccountRow = (typeof accounts)[number]
+  const outstanding = parties.filter((p: PartyRow) => p.runningBalance.toNumber() > 0).reduce((s: number, p: PartyRow) => s + p.runningBalance.toNumber(), 0)
+  const cashPosition = accounts.reduce((s: number, a: AccountRow) => s + a.currentBalance.toNumber(), 0)
 
   const statCards = [
     { id: 'stat-machines',    title: 'Total Machines',  value: machineCount.toString(),  icon: Truck,     sub: 'active fleet',     color: 'text-chart-1' },

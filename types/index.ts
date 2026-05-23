@@ -1,8 +1,20 @@
-import type { User, Business, UserRole } from '@prisma/client'
-
-export type UserWithRole = User & {
-  role: UserRole
-  business: Business | null
+export type UserWithRole = {
+  id: string
+  email: string
+  name: string
+  roleId: string
+  businessId: string | null
+  isActive: boolean
+  role: {
+    id: string
+    name: string
+  }
+  business: {
+    id: string
+    name: string
+    phone: string | null
+    address: string | null
+  } | null
 }
 
 export type NavItem = {

@@ -19,6 +19,11 @@ export default async function DashboardLayout({
     redirect('/setup')
   }
 
+  // Operators should never reach dashboard — send to their dedicated interface
+  if (user.roleId === 'operator') {
+    redirect('/operator/log-job')
+  }
+
   const businessName = user.business?.name ?? 'My Business'
   const userName = user.name
   const roleName = user.role.name
