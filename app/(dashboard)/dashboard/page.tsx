@@ -1,10 +1,9 @@
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { formatINR } from '@/lib/utils'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { Truck, Users, Building2, Wallet, Activity, Wrench, CheckCircle, Circle } from 'lucide-react'
+import { Truck, Users, Building2, Wallet, Activity, Wrench, CheckCircle } from 'lucide-react'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Dashboard' }
@@ -18,16 +17,12 @@ export default async function DashboardPage() {
   const [
     machineCount,
     staffCount,
-    partyCount,
-    rateCardCount,
     parties,
     accounts,
     machinesWithSchedules,
   ] = await Promise.all([
     prisma.machine.count({ where: { businessId, deletedAt: null } }),
     prisma.user.count({ where: { businessId, deletedAt: null, roleId: { not: 'master_admin' } } }),
-    prisma.party.count({ where: { businessId, deletedAt: null } }),
-    prisma.rateCard.count({ where: { businessId, deletedAt: null, isActive: true } }),
     prisma.party.findMany({ where: { businessId, deletedAt: null }, select: { runningBalance: true } }),
     prisma.account.findMany({ where: { businessId, deletedAt: null, isActive: true }, select: { currentBalance: true } }),
     prisma.machine.findMany({
@@ -44,14 +39,7 @@ export default async function DashboardPage() {
     .reduce((s: number, p: PartyRow) => s + p.runningBalance.toNumber(), 0)
   const cashPosition = accounts.reduce((s: number, a: AccountRow) => s + a.currentBalance.toNumber(), 0)
 
-  // Setup checklist
-  const setupItems = [
-    { label: 'Add at least one machine', done: machineCount > 0, href: '/dashboard/machines' },
-    { label: 'Add at least one staff member', done: staffCount > 0, href: '/dashboard/staff' },
-    { label: 'Add at least one party', done: partyCount > 0, href: '/dashboard/parties' },
-    { label: 'Set at least one rate card', done: rateCardCount > 0, href: '/dashboard/parties' },
-  ]
-  const allDone = setupItems.every((i) => i.done)
+
 
   // Oil change alerts
   type AlertMachine = {
@@ -96,33 +84,7 @@ export default async function DashboardPage() {
         <p className="text-sm mt-0.5 text-muted-foreground">Welcome back, {user.name.split(' ')[0]} 👋</p>
       </div>
 
-      {/* Setup Checklist */}
-      {!allDone && (
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <CheckCircle className="w-4 h-4 text-primary" />
-            <h2 className="font-semibold text-sm">Setup Checklist</h2>
-            <span className="ml-auto text-xs text-muted-foreground">
-              {setupItems.filter((i) => i.done).length}/{setupItems.length} complete
-            </span>
-          </div>
-          <ul className="space-y-2">
-            {setupItems.map((item) => (
-              <li key={item.label} className="flex items-center gap-2 text-sm">
-                {item.done
-                  ? <CheckCircle className="w-4 h-4 text-chart-5 flex-shrink-0" />
-                  : <Circle className="w-4 h-4 text-muted-foreground/40 flex-shrink-0" />}
-                <Link
-                  href={item.href}
-                  className={item.done ? 'text-muted-foreground line-through' : 'text-foreground hover:underline'}
-                >
-                  {item.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
