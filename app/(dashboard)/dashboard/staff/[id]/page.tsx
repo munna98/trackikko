@@ -1,4 +1,5 @@
 import { notFound, redirect } from 'next/navigation'
+import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { Badge } from '@/components/ui/badge'
@@ -9,7 +10,7 @@ import { StaffSheet } from '@/components/staff/staff-sheet'
 import { DeactivateButton } from '@/components/staff/deactivate-button'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { formatINR, getInitials } from '@/lib/utils'
-import { Phone, Mail, Banknote, Receipt } from 'lucide-react'
+import { Phone, Mail, Banknote, Receipt, ChevronLeft } from 'lucide-react'
 import type { Metadata } from 'next'
 
 type PageProps = { params: Promise<{ id: string }> }
@@ -61,6 +62,15 @@ export default async function StaffDetailPage({ params }: PageProps) {
 
   return (
     <div className="space-y-6">
+      {/* Back nav */}
+      <Link
+        href="/dashboard/staff"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ChevronLeft className="h-4 w-4" />
+        Staff
+      </Link>
+
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex items-start gap-4">

@@ -1,9 +1,11 @@
 import { notFound, redirect } from 'next/navigation'
+import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { Badge } from '@/components/ui/badge'
 import { MachineSheet } from '@/components/machines/machine-sheet'
 import { MachineTabs } from '@/components/machines/machine-tabs'
+import { ChevronLeft } from 'lucide-react'
 import type { Metadata } from 'next'
 
 type PageProps = { params: Promise<{ id: string }> }
@@ -100,6 +102,15 @@ export default async function MachineDetailPage({ params }: PageProps) {
 
   return (
     <div className="space-y-6">
+      {/* Back nav */}
+      <Link
+        href="/dashboard/machines"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ChevronLeft className="h-4 w-4" />
+        Machines
+      </Link>
+
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="space-y-2">
