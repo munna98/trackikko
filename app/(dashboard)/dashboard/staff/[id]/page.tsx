@@ -62,15 +62,6 @@ export default async function StaffDetailPage({ params }: PageProps) {
 
   return (
     <div className="space-y-6">
-      {/* Back nav */}
-      <Link
-        href="/dashboard/staff"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ChevronLeft className="h-4 w-4" />
-        Staff
-      </Link>
-
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex items-start gap-4">
@@ -78,7 +69,16 @@ export default async function StaffDetailPage({ params }: PageProps) {
             {getInitials(staffMember.name)}
           </div>
           <div className="space-y-1.5">
-            <h1 className="text-2xl font-bold text-foreground">{staffMember.name}</h1>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/dashboard/staff"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Back to staff"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </Link>
+              <h1 className="text-2xl font-bold text-foreground">{staffMember.name}</h1>
+            </div>
             {staffMember.designation && (
               <p className="text-sm text-muted-foreground">{staffMember.designation}</p>
             )}

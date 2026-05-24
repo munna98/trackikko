@@ -102,20 +102,20 @@ export default async function MachineDetailPage({ params }: PageProps) {
 
   return (
     <div className="space-y-6">
-      {/* Back nav */}
-      <Link
-        href="/dashboard/machines"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ChevronLeft className="h-4 w-4" />
-        Machines
-      </Link>
-
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="space-y-2">
-          <h1 className="text-2xl font-bold text-foreground">{machine.name}</h1>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <Link
+              href="/dashboard/machines"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Back to machines"
+            >
+              <ChevronLeft className="h-6 w-6" />
+            </Link>
+            <h1 className="text-2xl font-bold text-foreground">{machine.name}</h1>
+          </div>
+          <div className="flex flex-wrap gap-2 pl-8">
             <Badge variant="secondary">{machine.machineType.name}</Badge>
             {machine.capacity && <Badge variant="outline">{machine.capacity}</Badge>}
             {machine.identifier && <Badge variant="outline">{machine.identifier}</Badge>}
