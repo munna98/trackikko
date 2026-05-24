@@ -425,12 +425,12 @@ function OilChangesTab({
 export function MachineTabs({ machine, accounts, isAdmin }: Props) {
   return (
     <Tabs defaultValue="overview">
-      <TabsList className="w-full md:w-auto mb-6 grid grid-cols-5 md:inline-flex h-auto gap-0.5 p-1">
-        <TabsTrigger value="overview" className="text-xs md:text-sm" data-value="overview">Overview</TabsTrigger>
-        <TabsTrigger value="emi" className="text-xs md:text-sm">EMI</TabsTrigger>
-        <TabsTrigger value="oil" className="text-xs md:text-sm" data-value="oil">Oil Changes</TabsTrigger>
-        <TabsTrigger value="jobs" className="text-xs md:text-sm">Jobs</TabsTrigger>
-        <TabsTrigger value="expenses" className="text-xs md:text-sm">Expenses</TabsTrigger>
+      <TabsList className="w-full h-auto flex-wrap justify-start gap-0.5 p-1">
+        <TabsTrigger value="overview" data-value="overview">Overview</TabsTrigger>
+        <TabsTrigger value="emi">EMI</TabsTrigger>
+        <TabsTrigger value="oil" data-value="oil">Oil Changes</TabsTrigger>
+        <TabsTrigger value="jobs">Jobs</TabsTrigger>
+        <TabsTrigger value="expenses">Expenses</TabsTrigger>
       </TabsList>
 
       <TabsContent value="overview">

@@ -133,7 +133,7 @@ export default async function StaffDetailPage({ params }: PageProps) {
 
       {/* Tabs */}
       <Tabs defaultValue="overview">
-        <TabsList className="w-full md:w-auto mb-6 grid grid-cols-3 md:inline-flex h-auto gap-0.5 p-1">
+        <TabsList className="w-full h-auto flex-wrap justify-start gap-0.5 p-1">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="advances">Advances</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
