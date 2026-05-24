@@ -187,19 +187,17 @@ export function StaffForm({ defaultValues, onSuccess, currentUserId }: StaffForm
             <FormItem>
               <FormLabel>Designation <span className="text-muted-foreground text-xs">(optional)</span></FormLabel>
               <FormControl>
-                <>
-                  <Input
-                    list="designation-suggestions"
-                    placeholder="Operator, Driver, Supervisor..."
-                    {...field}
-                  />
-                  <datalist id="designation-suggestions">
-                    {DESIGNATIONS.map((d) => (
-                      <option key={d} value={d} />
-                    ))}
-                  </datalist>
-                </>
+                <Input
+                  list="designation-suggestions"
+                  placeholder="Operator, Driver, Supervisor..."
+                  {...field}
+                />
               </FormControl>
+              <datalist id="designation-suggestions">
+                {DESIGNATIONS.map((d) => (
+                  <option key={d} value={d} />
+                ))}
+              </datalist>
               <FormMessage />
             </FormItem>
           )}

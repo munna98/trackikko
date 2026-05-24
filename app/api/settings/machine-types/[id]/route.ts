@@ -42,7 +42,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const body: unknown = await request.json()
     const parsed = updateMachineTypeSchema.safeParse(body)
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+      return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' }, { status: 400 })
     }
 
     const { name, trackingUnit, hasModes, isBillable, isActive } = parsed.data

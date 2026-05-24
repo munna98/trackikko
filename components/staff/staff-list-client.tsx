@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { type ColumnDef } from '@tanstack/react-table'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/ui/status-badge'
@@ -40,11 +41,15 @@ const ROLE_LABEL: Record<string, string> = {
 }
 
 function StaffCard({ member, isAdmin, currentUserId }: { member: StaffMember; isAdmin: boolean; currentUserId: string }) {
+  const router = useRouter()
   return (
-    <Link
-      href={`/dashboard/staff/${member.id}`}
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={() => router.push(`/dashboard/staff/${member.id}`)}
+      onKeyDown={(e) => e.key === 'Enter' && router.push(`/dashboard/staff/${member.id}`)}
       className={cn(
-        'flex items-start gap-3 rounded-2xl border border-border bg-card p-4 transition-all hover:shadow-md hover:border-primary/20 active:scale-[0.98]',
+        'flex items-start gap-3 rounded-2xl border border-border bg-card p-4 transition-all hover:shadow-md hover:border-primary/20 active:scale-[0.98] cursor-pointer',
         !member.isActive && 'opacity-60'
       )}
     >
@@ -82,7 +87,7 @@ function StaffCard({ member, isAdmin, currentUserId }: { member: StaffMember; is
           </p>
         )}
       </div>
-    </Link>
+    </div>
   )
 }
 

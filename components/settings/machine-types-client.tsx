@@ -55,17 +55,21 @@ function MachineTypeRow({ machineType, isAdmin }: { machineType: MachineType; is
       machineType.isGlobal ? 'bg-muted/50' : 'bg-card'
     )}>
       {machineType.isGlobal && <Lock className="w-3.5 h-3.5 text-muted-foreground/50 flex-shrink-0" />}
-      <p className={cn('flex-1 text-sm font-medium', machineType.isGlobal && 'text-muted-foreground')}>
-        {machineType.name}
-      </p>
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        <p className={cn('text-sm font-medium truncate', machineType.isGlobal && 'text-muted-foreground')}>
+          {machineType.name}
+        </p>
+        {machineType.hasModes && (
+          <Badge variant="outline" className="text-xs flex-shrink-0">Has Modes</Badge>
+        )}
+      </div>
       <div className="flex items-center gap-2 flex-wrap justify-end">
         <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', UNIT_BADGE[machineType.trackingUnit])}>
           {UNIT_LABEL[machineType.trackingUnit]}
         </span>
-        {machineType.hasModes && (
-          <Badge variant="outline" className="text-xs">Has Modes</Badge>
-        )}
-        {!machineType.isBillable && (
+        {machineType.isBillable ? (
+          <Badge variant="outline" className="text-xs text-chart-2 border-chart-2/40">Billable</Badge>
+        ) : (
           <Badge variant="outline" className="text-xs text-muted-foreground">Non-Billable</Badge>
         )}
         {!machineType.isGlobal && isAdmin && (

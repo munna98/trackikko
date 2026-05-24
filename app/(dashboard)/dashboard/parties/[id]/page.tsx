@@ -82,19 +82,17 @@ export default async function PartyDetailPage({ params }: PageProps) {
 
   return (
     <div className="space-y-6">
-      {/* Back */}
-      <Link
-        href="/dashboard/parties"
-        className="text-muted-foreground hover:text-foreground transition-colors"
-        aria-label="Back to parties"
-      >
-        <ChevronLeft className="h-6 w-6 inline" />
-      </Link>
-
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
+            <Link
+              href="/dashboard/parties"
+              className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+              aria-label="Back to parties"
+            >
+              <ChevronLeft className="h-6 w-6" />
+            </Link>
             <h1 className="text-2xl font-bold text-foreground">{party.name}</h1>
             {!party.isActive && (
               <Badge variant="outline" className="text-muted-foreground">Inactive</Badge>

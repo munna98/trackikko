@@ -6,9 +6,9 @@ import { z } from 'zod'
 
 const createPartySchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  mobile: z.string().optional(),
-  address: z.string().optional(),
-  gstNo: z.string().optional(),
+  mobile: z.string().nullish(),
+  address: z.string().nullish(),
+  gstNo: z.string().nullish(),
   openingBalance: z.coerce.number().default(0), // signed: positive = Dr, negative = Cr
 })
 
@@ -24,7 +24,8 @@ export async function POST(request: NextRequest) {
     const body: unknown = await request.json()
     const parsed = createPartySchema.safeParse(body)
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+      const firstError = parsed.error.issues[0]?.message ?? 'Invalid input'
+      return NextResponse.json({ error: firstError }, { status: 400 })
     }
 
     const { name, mobile, address, gstNo, openingBalance } = parsed.data

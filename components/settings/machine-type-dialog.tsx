@@ -8,7 +8,6 @@ import { Loader2, Plus, Pencil } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
@@ -117,28 +116,82 @@ export function MachineTypeDialog({ defaultValues }: MachineTypeDialogProps) {
                 <FormMessage />
               </FormItem>
             )} />
-            <FormField control={form.control} name="hasModes" render={({ field }) => (
-              <FormItem className="flex items-center justify-between rounded-lg border border-border p-3">
-                <div>
-                  <FormLabel className="text-sm font-medium">Has Modes</FormLabel>
-                  <p className="text-xs text-muted-foreground mt-0.5">Supports bucket/breaking modes (Excavator only)</p>
+            {/* Has Modes toggle */}
+            {(() => {
+              const value = form.watch('hasModes')
+              return (
+                <div
+                  className={`flex items-center justify-between rounded-lg border-2 p-3 transition-all cursor-pointer ${
+                    value ? 'border-primary bg-primary/5' : 'border-border bg-background'
+                  }`}
+                  onClick={() => form.setValue('hasModes', !value)}
+                >
+                  <div>
+                    <p className="text-sm font-medium">Has Modes</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Supports bucket / breaking modes (Excavator only)</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <span className={`text-xs font-semibold ${value ? 'text-primary' : 'text-muted-foreground'}`}>
+                      {value ? 'Yes' : 'No'}
+                    </span>
+                    {/* Custom toggle pill */}
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={value}
+                      onClick={() => form.setValue('hasModes', !value)}
+                      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                        value ? 'bg-primary' : 'bg-input'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+                          value ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
                 </div>
-                <FormControl>
-                  <Switch checked={field.value} onCheckedChange={field.onChange} />
-                </FormControl>
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="isBillable" render={({ field }) => (
-              <FormItem className="flex items-center justify-between rounded-lg border border-border p-3">
-                <div>
-                  <FormLabel className="text-sm font-medium">Is Billable</FormLabel>
-                  <p className="text-xs text-muted-foreground mt-0.5">Jobs generate revenue (turn off for Car/Bike)</p>
+              )
+            })()}
+
+            {/* Is Billable toggle */}
+            {(() => {
+              const value = form.watch('isBillable')
+              return (
+                <div
+                  className={`flex items-center justify-between rounded-lg border-2 p-3 transition-all cursor-pointer ${
+                    value ? 'border-primary bg-primary/5' : 'border-border bg-background'
+                  }`}
+                  onClick={() => form.setValue('isBillable', !value)}
+                >
+                  <div>
+                    <p className="text-sm font-medium">Is Billable</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Jobs generate revenue (turn off for Car / Bike)</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <span className={`text-xs font-semibold ${value ? 'text-primary' : 'text-muted-foreground'}`}>
+                      {value ? 'Yes' : 'No'}
+                    </span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={value}
+                      onClick={() => form.setValue('isBillable', !value)}
+                      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                        value ? 'bg-primary' : 'bg-input'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+                          value ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
                 </div>
-                <FormControl>
-                  <Switch checked={field.value} onCheckedChange={field.onChange} />
-                </FormControl>
-              </FormItem>
-            )} />
+              )
+            })()}
             {errors.root && <p className="text-sm text-destructive">{errors.root.message}</p>}
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
