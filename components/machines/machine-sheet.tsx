@@ -55,14 +55,16 @@ export function MachineSheet({ machineTypes, defaultValues, trigger }: MachineSh
         )}
       </SheetTrigger>
       <SheetContent className="w-full sm:max-w-md overflow-y-auto">
-        <SheetHeader className="mb-6">
+        <SheetHeader>
           <SheetTitle>{isEdit ? 'Edit Machine' : 'Add Machine'}</SheetTitle>
         </SheetHeader>
-        <MachineForm
-          machineTypes={machineTypes}
-          defaultValues={defaultValues}
-          onSuccess={() => setOpen(false)}
-        />
+        <div className="px-6 py-6">
+          <MachineForm
+            machineTypes={machineTypes}
+            defaultValues={defaultValues}
+            onSuccess={() => setOpen(false)}
+          />
+        </div>
       </SheetContent>
     </Sheet>
   )

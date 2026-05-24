@@ -56,29 +56,31 @@ export function StaffSheet({ defaultValues, currentUserId, trigger }: StaffSheet
         )}
       </SheetTrigger>
       <SheetContent className="w-full sm:max-w-md overflow-y-auto">
-        <SheetHeader className="mb-6">
+        <SheetHeader>
           <SheetTitle>{isEdit ? 'Edit Staff Member' : 'Add Staff Member'}</SheetTitle>
         </SheetHeader>
-        {successMessage ? (
-          <div className="rounded-xl border border-border bg-muted/50 p-5 text-center space-y-3">
-            <p className="text-sm font-medium text-foreground">{successMessage}</p>
-            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
-              Close
-            </Button>
-          </div>
-        ) : (
-          <StaffForm
-            defaultValues={defaultValues}
-            currentUserId={currentUserId}
-            onSuccess={(msg) => {
-              if (msg) {
-                setSuccessMessage(msg)
-              } else {
-                setOpen(false)
-              }
-            }}
-          />
-        )}
+        <div className="px-6 py-6">
+          {successMessage ? (
+            <div className="rounded-xl border border-border bg-muted/50 p-5 text-center space-y-3">
+              <p className="text-sm font-medium text-foreground">{successMessage}</p>
+              <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
+                Close
+              </Button>
+            </div>
+          ) : (
+            <StaffForm
+              defaultValues={defaultValues}
+              currentUserId={currentUserId}
+              onSuccess={(msg) => {
+                if (msg) {
+                  setSuccessMessage(msg)
+                } else {
+                  setOpen(false)
+                }
+              }}
+            />
+          )}
+        </div>
       </SheetContent>
     </Sheet>
   )
