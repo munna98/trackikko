@@ -45,8 +45,14 @@ export async function POST(request: NextRequest) {
 
     // Send Supabase auth invite
     const adminClient = createAdminClient()
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ??
+      (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null) ??
+      'https://trackikko.vercel.app'
+
     const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
       data: { name },
+      redirectTo: `${appUrl}/login`,
     })
 
     if (inviteError) {
