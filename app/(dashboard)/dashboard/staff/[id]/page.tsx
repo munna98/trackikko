@@ -132,7 +132,7 @@ export default async function StaffDetailPage({ params }: PageProps) {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="overview">
+      <Tabs defaultValue="overview" className="flex-col">
         <TabsList className="w-full h-auto flex-wrap justify-start gap-0.5 p-1">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="advances">Advances</TabsTrigger>

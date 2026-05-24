@@ -424,7 +424,7 @@ function OilChangesTab({
 
 export function MachineTabs({ machine, accounts, isAdmin }: Props) {
   return (
-    <Tabs defaultValue="overview">
+    <Tabs defaultValue="overview" className="flex-col">
       <TabsList className="w-full h-auto flex-wrap justify-start gap-0.5 p-1">
         <TabsTrigger value="overview" data-value="overview">Overview</TabsTrigger>
         <TabsTrigger value="emi">EMI</TabsTrigger>
