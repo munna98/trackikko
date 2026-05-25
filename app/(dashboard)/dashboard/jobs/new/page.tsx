@@ -1,23 +1,27 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { OperatorJobForm } from '@/components/jobs/operator-job-form'
-import type {
-  SerialMachine,
-  SerialSite,
-  SerialRateCard,
-} from '@/components/jobs/operator-job-form'
+import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
+import { AdminJobForm } from '@/components/jobs/admin-job-form'
+import type { SerialMachine, SerialSite, SerialRateCard } from '@/components/jobs/operator-job-form'
+import type { SerialStaff } from '@/components/jobs/admin-job-form'
+import { ArrowLeft } from 'lucide-react'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Log Job' }
 
-export default async function LogJobPage() {
+const ADMIN_ROLES = ['master_admin', 'admin']
+
+export default async function AdminNewJobPage() {
   const user = await getCurrentUser()
   if (!user?.businessId) redirect('/login')
+  if (!ADMIN_ROLES.includes(user.roleId)) redirect('/dashboard/jobs')
 
   const businessId = user.businessId!
 
-  const [machines, sites, rateCards] = await Promise.all([
+  const [machines, sites, rateCards, staffList] = await Promise.all([
     prisma.machine.findMany({
       where: { businessId, deletedAt: null, isActive: true },
       include: { machineType: true },
@@ -31,11 +35,17 @@ export default async function LogJobPage() {
     prisma.rateCard.findMany({
       where: { businessId, deletedAt: null, isActive: true },
     }),
+    prisma.user.findMany({
+      where: { businessId, deletedAt: null, isActive: true },
+      select: { id: true, name: true, roleId: true },
+      orderBy: { name: 'asc' },
+    }),
   ])
 
   type MachineRow = (typeof machines)[number]
   type SiteRow = (typeof sites)[number]
   type RateCardRow = (typeof rateCards)[number]
+  type StaffRow = (typeof staffList)[number]
 
   const serialMachines: SerialMachine[] = machines.map((m: MachineRow) => ({
     id: m.id,
@@ -61,20 +71,33 @@ export default async function LogJobPage() {
     rate: rc.rate.toNumber(),
   }))
 
-  return (
-    <div className="max-w-lg mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Log Job</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Record today&apos;s machine work — hours, trips, or kilometres.
-        </p>
-      </div>
+  const serialStaff: SerialStaff[] = staffList.map((s: StaffRow) => ({
+    id: s.id,
+    name: s.name,
+    roleId: s.roleId,
+  }))
 
-      <div className="rounded-2xl border border-border bg-card p-5">
-        <OperatorJobForm
+  return (
+    <div className="space-y-6 max-w-2xl">
+      <PageHeader
+        title="Log Job"
+        description="Record a job entry on behalf of a staff member."
+        action={
+          <Button variant="outline" asChild>
+            <Link href="/dashboard/jobs">
+              <ArrowLeft className="w-4 h-4 mr-1.5" />
+              Back to Jobs
+            </Link>
+          </Button>
+        }
+      />
+
+      <div className="rounded-2xl border border-border bg-card p-6">
+        <AdminJobForm
           machines={serialMachines}
           sites={serialSites}
           rateCards={serialRateCards}
+          staff={serialStaff}
         />
       </div>
     </div>

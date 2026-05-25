@@ -4,7 +4,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { formatINR } from '@/lib/utils'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { Truck, Users, Building2, Wallet, Activity, Wrench, CheckCircle } from 'lucide-react'
+import { Truck, Users, Building2, Wallet, Activity, Wrench, CheckCircle, ClipboardList, TrendingUp } from 'lucide-react'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Dashboard' }
@@ -15,12 +15,19 @@ export default async function DashboardPage() {
 
   const businessId = user.businessId!
 
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
   const [
     machineCount,
     staffCount,
     parties,
     accounts,
     machinesWithSchedules,
+    jobsToday,
+    revenueThisMonth,
+    recentJobs,
   ] = await Promise.all([
     prisma.machine.count({ where: { businessId, deletedAt: null } }),
     prisma.user.count({ where: { businessId, deletedAt: null, roleId: { not: 'master_admin' } } }),
@@ -29,6 +36,22 @@ export default async function DashboardPage() {
     prisma.machine.findMany({
       where: { businessId, deletedAt: null, isActive: true },
       include: { oilChangeSchedule: true, machineType: true },
+    }),
+    prisma.job.count({
+      where: { businessId, deletedAt: null, date: { gte: todayStart } },
+    }),
+    prisma.job.aggregate({
+      where: { businessId, deletedAt: null, date: { gte: monthStart } },
+      _sum: { amount: true },
+    }),
+    prisma.job.findMany({
+      where: { businessId, deletedAt: null },
+      include: {
+        machine: { select: { name: true } },
+        site: { include: { party: { select: { name: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
     }),
   ])
 
@@ -72,11 +95,22 @@ export default async function DashboardPage() {
     .filter((m: AlertMachine | null): m is AlertMachine => m !== null)
 
   const statCards = [
-    { id: 'stat-machines',    title: 'Total Machines',  value: machineCount.toString(), icon: Truck,     sub: 'active fleet',    color: 'text-chart-1' },
-    { id: 'stat-staff',       title: 'Active Staff',    value: staffCount.toString(),   icon: Users,     sub: 'team members',    color: 'text-chart-5' },
-    { id: 'stat-outstanding', title: 'Outstanding',     value: formatINR(outstanding),  icon: Building2, sub: 'from parties',    color: 'text-destructive' },
-    { id: 'stat-cash',        title: 'Cash Position',   value: formatINR(cashPosition), icon: Wallet,    sub: 'across accounts', color: 'text-chart-2' },
+    { id: 'stat-machines',    title: 'Total Machines',   value: machineCount.toString(),                              icon: Truck,          sub: 'active fleet',    color: 'text-chart-1' },
+    { id: 'stat-staff',       title: 'Active Staff',     value: staffCount.toString(),                                icon: Users,          sub: 'team members',    color: 'text-chart-5' },
+    { id: 'stat-outstanding', title: 'Outstanding',      value: formatINR(outstanding),                               icon: Building2,      sub: 'from parties',    color: 'text-destructive' },
+    { id: 'stat-cash',        title: 'Cash Position',    value: formatINR(cashPosition),                              icon: Wallet,         sub: 'across accounts', color: 'text-chart-2' },
+    { id: 'stat-jobs-today',  title: 'Jobs Today',       value: jobsToday.toString(),                                 icon: ClipboardList,  sub: 'logged today',    color: 'text-primary' },
+    { id: 'stat-revenue',     title: 'Revenue (Month)',  value: formatINR(revenueThisMonth._sum.amount ?? 0),         icon: TrendingUp,     sub: 'billed this month', color: 'text-chart-1' },
   ]
+
+  type RecentJob = (typeof recentJobs)[number]
+  const serialRecentJobs = recentJobs.map((j: RecentJob) => ({
+    id: j.id,
+    machineName: j.machine.name,
+    partyName: j.site.party.name,
+    amount: j.amount.toNumber(),
+    date: j.date.toISOString(),
+  }))
 
   return (
     <div className="space-y-6">
@@ -85,10 +119,8 @@ export default async function DashboardPage() {
         <p className="text-sm mt-0.5 text-muted-foreground">Welcome back, {user.name.split(' ')[0]} 👋</p>
       </div>
 
-
-
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Stat cards — 2×3 on mobile, 3×2 on desktop */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         {statCards.map(({ id, title, value, icon: Icon, sub, color }) => (
           <div key={id} id={id} className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3">
             <div className="flex items-start justify-between">
@@ -107,20 +139,49 @@ export default async function DashboardPage() {
 
       {/* Bottom section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Recent Activity — placeholder */}
+        {/* Recent Activity — real jobs */}
         <div className="rounded-2xl border border-border bg-card p-5">
           <div className="flex items-center gap-2 mb-4">
             <Activity className="w-4 h-4 text-primary" />
             <h2 className="font-semibold text-sm text-card-foreground">Recent Activity</h2>
+            {serialRecentJobs.length > 0 && (
+              <Link href="/dashboard/jobs" className="ml-auto text-xs text-primary hover:underline">
+                View all
+              </Link>
+            )}
           </div>
-          <div className="flex flex-col items-center justify-center py-8 rounded-xl bg-muted">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground/40">
-              <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
-              <rect x="9" y="3" width="6" height="4" rx="1" />
-              <line x1="9" y1="12" x2="15" y2="12" /><line x1="9" y1="16" x2="12" y2="16" />
-            </svg>
-            <p className="text-sm mt-3 text-muted-foreground">Start logging jobs to see activity here</p>
-          </div>
+          {serialRecentJobs.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 rounded-xl bg-muted">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground/40">
+                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+                <rect x="9" y="3" width="6" height="4" rx="1" />
+                <line x1="9" y1="12" x2="15" y2="12" /><line x1="9" y1="16" x2="12" y2="16" />
+              </svg>
+              <p className="text-sm mt-3 text-muted-foreground">Start logging jobs to see activity here</p>
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {serialRecentJobs.map((job) => (
+                <li key={job.id}>
+                  <Link
+                    href={`/dashboard/jobs/${job.id}`}
+                    className="flex items-center justify-between p-3 rounded-xl bg-muted hover:bg-accent transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{job.machineName}</p>
+                      <p className="text-xs text-muted-foreground">{job.partyName}</p>
+                    </div>
+                    <div className="text-right flex-shrink-0 ml-3">
+                      <p className="text-sm font-semibold text-foreground">{formatINR(job.amount)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(job.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                      </p>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {/* Service Alerts */}

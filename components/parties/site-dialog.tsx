@@ -8,6 +8,7 @@ import { Loader2, Plus, Pencil } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
@@ -19,11 +20,12 @@ const siteSchema = z.object({
   name: z.string().min(1, 'Site name is required'),
   location: z.string().optional(),
   batha: z.coerce.number().min(0).default(0),
+  isActive: z.boolean().default(true),
 })
 
 type SiteFormValues = z.infer<typeof siteSchema>
 
-type Site = { id: string; name: string; location?: string; batha?: number }
+type Site = { id: string; name: string; location?: string; batha?: number; isActive?: boolean }
 
 type SiteDialogProps = {
   partyId: string
@@ -43,6 +45,7 @@ export function SiteDialog({ partyId, defaultValues, trigger }: SiteDialogProps)
       name: defaultValues?.name ?? '',
       location: defaultValues?.location ?? '',
       batha: defaultValues?.batha ?? 0,
+      isActive: defaultValues?.isActive ?? true,
     },
   })
 
@@ -59,6 +62,7 @@ export function SiteDialog({ partyId, defaultValues, trigger }: SiteDialogProps)
         name: values.name,
         location: values.location || null,
         batha: values.batha,
+        ...(isEdit && { isActive: values.isActive }),
       }),
     })
 
@@ -119,6 +123,30 @@ export function SiteDialog({ partyId, defaultValues, trigger }: SiteDialogProps)
                 <FormMessage />
               </FormItem>
             )} />
+
+            {isEdit && (
+              <FormField control={form.control} name="isActive" render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
+                    <div>
+                      <FormLabel className="text-sm font-medium cursor-pointer">
+                        Active
+                      </FormLabel>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Inactive sites won&apos;t appear in job forms
+                      </p>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        id={`site-active-toggle-${defaultValues?.id}`}
+                      />
+                    </FormControl>
+                  </div>
+                </FormItem>
+              )} />
+            )}
 
             {errors.root && <p className="text-sm text-destructive">{errors.root.message}</p>}
             <Button type="submit" className="w-full" disabled={isSubmitting}>

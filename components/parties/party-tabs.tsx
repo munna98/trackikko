@@ -48,21 +48,22 @@ type PartyTabsProps = {
 
 export function PartyTabs({ partyId, sites, rateCards, machines, isAdmin }: PartyTabsProps) {
   const router = useRouter()
-  const [deactivatingSiteId, setDeactivatingSiteId] = React.useState<string | null>(null)
+  const [togglingId, setTogglingId] = React.useState<string | null>(null)
+  const [toggleTarget, setToggleTarget] = React.useState<boolean>(false)
   const [confirmSiteOpen, setConfirmSiteOpen] = React.useState(false)
   const [loading, setLoading] = React.useState(false)
 
-  async function handleDeactivateSite() {
-    if (!deactivatingSiteId) return
+  async function handleToggleSite() {
+    if (!togglingId) return
     setLoading(true)
-    await fetch(`/api/parties/${partyId}/sites/${deactivatingSiteId}`, {
+    await fetch(`/api/parties/${partyId}/sites/${togglingId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ isActive: false }),
+      body: JSON.stringify({ isActive: toggleTarget }),
     })
     setLoading(false)
     setConfirmSiteOpen(false)
-    setDeactivatingSiteId(null)
+    setTogglingId(null)
     router.refresh()
   }
 
@@ -133,14 +134,23 @@ export function PartyTabs({ partyId, sites, rateCards, machines, isAdmin }: Part
                                 </Button>
                               }
                             />
-                            {site.isActive && (
+                            {site.isActive ? (
                               <Button
                                 size="sm"
                                 variant="outline"
                                 className="text-destructive hover:text-destructive text-xs"
-                                onClick={() => { setDeactivatingSiteId(site.id); setConfirmSiteOpen(true) }}
+                                onClick={() => { setTogglingId(site.id); setToggleTarget(false); setConfirmSiteOpen(true) }}
                               >
                                 Deactivate
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-chart-5 hover:text-chart-5 text-xs"
+                                onClick={() => { setTogglingId(site.id); setToggleTarget(true); setConfirmSiteOpen(true) }}
+                              >
+                                Activate
                               </Button>
                             )}
                           </div>
@@ -245,11 +255,15 @@ export function PartyTabs({ partyId, sites, rateCards, machines, isAdmin }: Part
       <ConfirmDialog
         open={confirmSiteOpen}
         onOpenChange={setConfirmSiteOpen}
-        title="Deactivate Site?"
-        description="This site will be marked inactive. Existing jobs linked to it are not affected."
-        confirmLabel="Deactivate"
-        variant="destructive"
-        onConfirm={handleDeactivateSite}
+        title={toggleTarget ? 'Activate Site?' : 'Deactivate Site?'}
+        description={
+          toggleTarget
+            ? 'This site will become active and appear in job forms.'
+            : 'This site will be marked inactive and hidden from job forms. Existing jobs are not affected.'
+        }
+        confirmLabel={toggleTarget ? 'Activate' : 'Deactivate'}
+        variant={toggleTarget ? 'default' : 'destructive'}
+        onConfirm={handleToggleSite}
         loading={loading}
       />
     </Tabs>
