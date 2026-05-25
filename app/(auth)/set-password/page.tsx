@@ -41,38 +41,59 @@ function SetPasswordInner() {
 
   useEffect(() => {
     const supabase = createClient()
+    let settled = false
 
-    async function init() {
-      // Supabase PKCE flow: the invite link lands here with ?code=XXX
-      // We exchange it for a session directly on this page
-      const code = searchParams.get('code')
-
-      if (code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(code)
-        if (error) {
-          setPageState('error')
-          setErrorMessage('Your invite link has expired or is invalid. Please ask your admin to resend the invite.')
-          return
-        }
-        // Code exchanged — session is now active, show the form
-        setPageState('ready')
-        return
-      }
-
-      // No code — maybe they refreshed the page after already exchanging the code
-      // Check if a session already exists
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
-        setPageState('ready')
-        return
-      }
-
-      // No code, no session — invalid/expired link
-      setPageState('error')
-      setErrorMessage('Your invite link has expired or is invalid. Please ask your admin to resend the invite.')
+    function markReady() {
+      if (settled) return
+      settled = true
+      setPageState('ready')
     }
 
-    void init()
+    function markError() {
+      if (settled) return
+      settled = true
+      setPageState('error')
+      setErrorMessage(
+        'Your invite link has expired or is invalid. Please ask your admin to resend the invite.'
+      )
+    }
+
+    // ── Path 1: PKCE flow — ?code= in the query string ──────────────────────
+    const code = searchParams.get('code')
+    if (code) {
+      supabase.auth
+        .exchangeCodeForSession(code)
+        .then(({ error }) => (error ? markError() : markReady()))
+      // onAuthStateChange not needed for PKCE; return early
+      return
+    }
+
+    // ── Path 2: Implicit flow — #access_token= in the URL hash ──────────────
+    // The Supabase browser client automatically reads the hash on load and
+    // fires onAuthStateChange with event = 'SIGNED_IN'.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION')) {
+        markReady()
+      }
+    })
+
+    // Also check immediately — if the hash was already consumed (e.g. page
+    // refresh after first load) a session might already be stored.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) markReady()
+    })
+
+    // Fallback: if nothing fires within 5 s, the link is truly invalid
+    const timeout = setTimeout(() => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session) markError()
+      })
+    }, 5000)
+
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(timeout)
+    }
   }, [searchParams])
 
   const onSubmit = async (data: FormData) => {
@@ -93,10 +114,7 @@ function SetPasswordInner() {
       setPageState('success')
       await new Promise((r) => setTimeout(r, 1200))
 
-      if (!session?.user?.email) {
-        router.push('/dashboard')
-        return
-      }
+      if (!session?.user?.email) { router.push('/dashboard'); return }
 
       const response = await fetch('/api/auth/me', {
         method: 'POST',
