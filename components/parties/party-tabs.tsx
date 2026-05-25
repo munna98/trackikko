@@ -10,12 +10,14 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { SiteDialog } from '@/components/parties/site-dialog'
 import { RateCardDialog } from '@/components/parties/rate-card-dialog'
-import { formatINR, formatDate } from '@/lib/utils'
+import { EditRateDialog } from '@/components/parties/edit-rate-dialog'
+import { formatINR } from '@/lib/utils'
 
 type Site = {
   id: string
   name: string
   location?: string
+  batha: number
   isActive: boolean
 }
 
@@ -26,7 +28,6 @@ type RateCard = {
   mode: string | null
   rateType: string
   rate: number
-  effectiveFrom: string
   isActive: boolean
 }
 
@@ -48,9 +49,7 @@ type PartyTabsProps = {
 export function PartyTabs({ partyId, sites, rateCards, machines, isAdmin }: PartyTabsProps) {
   const router = useRouter()
   const [deactivatingSiteId, setDeactivatingSiteId] = React.useState<string | null>(null)
-  const [deactivatingRateCardId, setDeactivatingRateCardId] = React.useState<string | null>(null)
   const [confirmSiteOpen, setConfirmSiteOpen] = React.useState(false)
-  const [confirmRcOpen, setConfirmRcOpen] = React.useState(false)
   const [loading, setLoading] = React.useState(false)
 
   async function handleDeactivateSite() {
@@ -64,16 +63,6 @@ export function PartyTabs({ partyId, sites, rateCards, machines, isAdmin }: Part
     setLoading(false)
     setConfirmSiteOpen(false)
     setDeactivatingSiteId(null)
-    router.refresh()
-  }
-
-  async function handleDeactivateRateCard() {
-    if (!deactivatingRateCardId) return
-    setLoading(true)
-    await fetch(`/api/parties/${partyId}/rate-cards/${deactivatingRateCardId}`, { method: 'PATCH' })
-    setLoading(false)
-    setConfirmRcOpen(false)
-    setDeactivatingRateCardId(null)
     router.refresh()
   }
 
@@ -102,12 +91,13 @@ export function PartyTabs({ partyId, sites, rateCards, machines, isAdmin }: Part
               action={isAdmin ? <SiteDialog partyId={partyId} /> : undefined}
             />
           ) : (
-            <div className="rounded-xl border border-border overflow-hidden">
+            <div className="rounded-xl border border-border overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-muted/50">
                   <tr>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Name</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Location</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Batha</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
                     {isAdmin && <th className="px-4 py-3" />}
                   </tr>
@@ -118,6 +108,13 @@ export function PartyTabs({ partyId, sites, rateCards, machines, isAdmin }: Part
                       <td className="px-4 py-3 font-medium text-foreground">{site.name}</td>
                       <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
                         {site.location ?? '—'}
+                      </td>
+                      <td className="px-4 py-3 font-medium text-foreground">
+                        {site.batha > 0 ? (
+                          <>{formatINR(site.batha)}<span className="text-xs font-normal text-muted-foreground ml-1">/ day</span></>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <Badge variant={site.isActive ? 'secondary' : 'outline'} className={!site.isActive ? 'text-muted-foreground' : ''}>
@@ -182,7 +179,6 @@ export function PartyTabs({ partyId, sites, rateCards, machines, isAdmin }: Part
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Site</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Mode</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Rate</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">From</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
                     {isAdmin && <th className="px-4 py-3" />}
                   </tr>
@@ -203,9 +199,6 @@ export function PartyTabs({ partyId, sites, rateCards, machines, isAdmin }: Part
                           / {rc.rateType === 'per_hour' ? 'hr' : 'trip'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">
-                        {formatDate(rc.effectiveFrom)}
-                      </td>
                       <td className="px-4 py-3">
                         <Badge variant={rc.isActive ? 'secondary' : 'outline'} className={!rc.isActive ? 'text-muted-foreground' : ''}>
                           {rc.isActive ? 'Active' : 'Inactive'}
@@ -213,16 +206,12 @@ export function PartyTabs({ partyId, sites, rateCards, machines, isAdmin }: Part
                       </td>
                       {isAdmin && (
                         <td className="px-4 py-3 text-right">
-                          {rc.isActive && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-destructive hover:text-destructive text-xs"
-                              onClick={() => { setDeactivatingRateCardId(rc.id); setConfirmRcOpen(true) }}
-                            >
-                              Deactivate
-                            </Button>
-                          )}
+                          <EditRateDialog
+                            partyId={partyId}
+                            rateCardId={rc.id}
+                            currentRate={rc.rate}
+                            rateType={rc.rateType}
+                          />
                         </td>
                       )}
                     </tr>
@@ -252,7 +241,7 @@ export function PartyTabs({ partyId, sites, rateCards, machines, isAdmin }: Part
         />
       </TabsContent>
 
-      {/* Confirm dialogs */}
+      {/* Confirm site deactivation */}
       <ConfirmDialog
         open={confirmSiteOpen}
         onOpenChange={setConfirmSiteOpen}
@@ -261,16 +250,6 @@ export function PartyTabs({ partyId, sites, rateCards, machines, isAdmin }: Part
         confirmLabel="Deactivate"
         variant="destructive"
         onConfirm={handleDeactivateSite}
-        loading={loading}
-      />
-      <ConfirmDialog
-        open={confirmRcOpen}
-        onOpenChange={setConfirmRcOpen}
-        title="Deactivate Rate Card?"
-        description="This rate card will no longer be used for new jobs."
-        confirmLabel="Deactivate"
-        variant="destructive"
-        onConfirm={handleDeactivateRateCard}
         loading={loading}
       />
     </Tabs>

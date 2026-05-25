@@ -22,8 +22,6 @@ type StaffMember = {
   roleName: string
   isActive: boolean
   advanceBalance: number
-  defaultBatha: number
-  salary: number
   address?: string
 }
 
@@ -185,8 +183,6 @@ export function StaffListClient({ staff, isAdmin, currentUserId }: Props) {
                   address: row.original.address,
                   bloodGroup: row.original.bloodGroup,
                   designation: row.original.designation,
-                  defaultBatha: row.original.defaultBatha,
-                  salary: row.original.salary,
                 }}
                 currentUserId={currentUserId}
               />

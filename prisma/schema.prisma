@@ -99,8 +99,6 @@ model User {
   address        String?
   bloodGroup     String?  @map("blood_group")
   designation    String?
-  defaultBatha   Decimal  @default(0) @map("default_batha") @db.Decimal
-  salary         Decimal  @default(0) @db.Decimal
   advanceBalance Decimal  @default(0) @map("advance_balance") @db.Decimal
 
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz
@@ -318,6 +316,7 @@ model Site {
   partyId    String    @map("party_id") @db.Uuid
   name       String
   location   String?
+  batha      Decimal   @default(0) @db.Decimal
   isActive   Boolean   @default(true) @map("is_active")
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt  DateTime  @default(now()) @map("updated_at") @db.Timestamptz
@@ -343,7 +342,6 @@ model RateCard {
   mode          MachineMode?
   rateType      RateTypeEnum @map("rate_type")
   rate          Decimal      @db.Decimal
-  effectiveFrom DateTime     @default(now()) @map("effective_from") @db.Date
   isActive      Boolean      @default(true) @map("is_active")
   createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz
   updatedAt     DateTime     @default(now()) @map("updated_at") @db.Timestamptz
@@ -355,7 +353,7 @@ model RateCard {
   party    Party    @relation(fields: [partyId], references: [id])
   site     Site?    @relation(fields: [siteId], references: [id])
 
-  @@unique([machineId, partyId, siteId, mode, effectiveFrom])
+  @@unique([machineId, partyId, siteId, mode])
   @@index([businessId], map: "idx_rate_cards_business_id")
   @@index([machineId], map: "idx_rate_cards_machine_id")
   @@index([partyId], map: "idx_rate_cards_party_id")

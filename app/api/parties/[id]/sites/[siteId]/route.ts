@@ -7,6 +7,7 @@ import { z } from 'zod'
 const updateSiteSchema = z.object({
   name: z.string().min(1).optional(),
   location: z.string().optional().nullable(),
+  batha: z.coerce.number().min(0).optional(),
   isActive: z.boolean().optional(),
 })
 
@@ -34,16 +35,17 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const body: unknown = await request.json()
     const parsed = updateSiteSchema.safeParse(body)
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' }, { status: 400 })
+      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
     }
 
-    const { name, location, isActive } = parsed.data
+    const { name, location, batha, isActive } = parsed.data
 
     await prisma.site.update({
       where: { id: siteId },
       data: {
         ...(name !== undefined && { name }),
         ...(location !== undefined && { location }),
+        ...(batha !== undefined && { batha }),
         ...(isActive !== undefined && { isActive }),
         updatedAt: new Date(),
       },

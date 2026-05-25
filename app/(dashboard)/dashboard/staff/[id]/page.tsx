@@ -116,8 +116,6 @@ export default async function StaffDetailPage({ params }: PageProps) {
                 address: staffMember.address ?? undefined,
                 bloodGroup: staffMember.bloodGroup ?? undefined,
                 designation: staffMember.designation ?? undefined,
-                defaultBatha: staffMember.defaultBatha.toNumber(),
-                salary: staffMember.salary.toNumber(),
               }}
               currentUserId={user.id}
             />
@@ -142,24 +140,6 @@ export default async function StaffDetailPage({ params }: PageProps) {
         <TabsContent value="overview">
           {/* Stats row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <Card>
-              <CardHeader className="pb-1">
-                <CardTitle className="text-xs text-muted-foreground uppercase tracking-wide">Monthly Salary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xl font-bold text-foreground">{formatINR(staffMember.salary.toNumber())}</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-1">
-                <CardTitle className="text-xs text-muted-foreground uppercase tracking-wide">Default Batha</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xl font-bold text-foreground">{formatINR(staffMember.defaultBatha.toNumber())}</p>
-                <p className="text-xs text-muted-foreground">/day</p>
-              </CardContent>
-            </Card>
 
             <Card className={staffMember.advanceBalance.toNumber() > 0 ? 'border-amber-200 dark:border-amber-800/30 bg-amber-50/50 dark:bg-amber-900/10' : ''}>
               <CardHeader className="pb-1">

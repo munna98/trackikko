@@ -42,8 +42,6 @@ const staffSchema = z.object({
   address: z.string().optional(),
   bloodGroup: z.string().optional(),
   designation: z.string().optional(),
-  defaultBatha: z.coerce.number().min(0).default(0),
-  salary: z.coerce.number().min(0).default(0),
 })
 
 type StaffFormValues = z.infer<typeof staffSchema>
@@ -70,8 +68,6 @@ export function StaffForm({ defaultValues, onSuccess, currentUserId }: StaffForm
       address: defaultValues?.address ?? '',
       bloodGroup: defaultValues?.bloodGroup ?? '',
       designation: defaultValues?.designation ?? '',
-      defaultBatha: defaultValues?.defaultBatha ?? 0,
-      salary: defaultValues?.salary ?? 0,
     },
   })
 
@@ -226,34 +222,6 @@ export function StaffForm({ defaultValues, onSuccess, currentUserId }: StaffForm
           )}
         />
 
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="salary"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Monthly Salary (₹)</FormLabel>
-                <FormControl>
-                  <Input type="number" min={0} placeholder="0" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="defaultBatha"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Default Batha (₹/day)</FormLabel>
-                <FormControl>
-                  <Input type="number" min={0} placeholder="0" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
 
         <FormField
           control={form.control}

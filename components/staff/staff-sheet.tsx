@@ -21,8 +21,6 @@ type StaffDefaultValues = {
   address?: string
   bloodGroup?: string
   designation?: string
-  defaultBatha: number
-  salary: number
 }
 
 type StaffSheetProps = {

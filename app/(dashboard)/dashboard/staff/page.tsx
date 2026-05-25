@@ -34,8 +34,6 @@ export default async function StaffPage() {
     roleName: s.role.name,
     isActive: s.isActive,
     advanceBalance: s.advanceBalance.toNumber(),
-    defaultBatha: s.defaultBatha.toNumber(),
-    salary: s.salary.toNumber(),
     address: s.address ?? undefined,
   }))
 

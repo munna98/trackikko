@@ -4,9 +4,8 @@ import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Loader2, Plus, CalendarIcon } from 'lucide-react'
+import { Loader2, Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { format } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -18,9 +17,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Calendar } from '@/components/ui/calendar'
-import { cn, formatDate } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 
 const rateCardSchema = z.object({
   machineId: z.string().min(1, 'Select a machine'),
@@ -28,7 +25,6 @@ const rateCardSchema = z.object({
   mode: z.enum(['bucket', 'breaking']).optional(),
   rateType: z.enum(['per_hour', 'per_trip']),
   rate: z.coerce.number().positive('Rate must be positive'),
-  effectiveFrom: z.date().refine((d) => !isNaN(d.getTime()), { message: 'Date is required' }),
 })
 
 type RateCardFormValues = z.infer<typeof rateCardSchema>
@@ -60,14 +56,12 @@ export function RateCardDialog({ partyId, machines, sites }: RateCardDialogProps
       siteId: '__all__',
       rateType: 'per_hour',
       rate: 0,
-      effectiveFrom: new Date(),
     },
   })
 
   const watchedMachineId = form.watch('machineId')
   const selectedMachine = machines.find((m) => m.id === watchedMachineId)
 
-  // Auto-set rateType from machine tracking unit
   React.useEffect(() => {
     if (!selectedMachine) return
     const rt = selectedMachine.trackingUnit === 'trips' ? 'per_trip' : 'per_hour'
@@ -87,7 +81,6 @@ export function RateCardDialog({ partyId, machines, sites }: RateCardDialogProps
         mode: values.mode ?? null,
         rateType: values.rateType,
         rate: values.rate,
-        effectiveFrom: format(values.effectiveFrom, 'yyyy-MM-dd'),
       }),
     })
 
@@ -99,9 +92,7 @@ export function RateCardDialog({ partyId, machines, sites }: RateCardDialogProps
 
     router.refresh()
     setOpen(false)
-    form.reset({
-      machineId: '', siteId: '__all__', rateType: 'per_hour', rate: 0, effectiveFrom: new Date(),
-    })
+    form.reset({ machineId: '', siteId: '__all__', rateType: 'per_hour', rate: 0 })
   }
 
   const { isSubmitting, errors } = form.formState
@@ -156,7 +147,7 @@ export function RateCardDialog({ partyId, machines, sites }: RateCardDialogProps
               </FormItem>
             )} />
 
-            {/* Mode — only for hasModes machines */}
+            {/* Mode */}
             {showModeSelector && (
               <FormField control={form.control} name="mode" render={({ field }) => (
                 <FormItem>
@@ -183,7 +174,7 @@ export function RateCardDialog({ partyId, machines, sites }: RateCardDialogProps
               )} />
             )}
 
-            {/* Rate Type — read-only display */}
+            {/* Rate Type — read-only */}
             <div className="space-y-1.5">
               <p className="text-sm font-medium text-foreground">Rate Type</p>
               <div className="rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
@@ -196,27 +187,6 @@ export function RateCardDialog({ partyId, machines, sites }: RateCardDialogProps
               <FormItem>
                 <FormLabel>Rate (₹) <span className="text-destructive">*</span></FormLabel>
                 <FormControl><Input type="number" min={0.01} step={0.01} placeholder="0" {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-
-            {/* Effective From */}
-            <FormField control={form.control} name="effectiveFrom" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Effective From <span className="text-destructive">*</span></FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button variant="outline" className={cn('w-full justify-start text-left font-normal', !field.value && 'text-muted-foreground')}>
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {field.value ? formatDate(field.value) : 'Pick a date'}
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={field.value} onSelect={field.onChange} />
-                  </PopoverContent>
-                </Popover>
                 <FormMessage />
               </FormItem>
             )} />

@@ -10,7 +10,6 @@ const createRateCardSchema = z.object({
   mode: z.enum(['bucket', 'breaking']).nullable().optional(),
   rateType: z.enum(['per_hour', 'per_trip']),
   rate: z.coerce.number().positive('Rate must be positive'),
-  effectiveFrom: z.string().min(1, 'Effective date is required'), // ISO date string
 })
 
 type RouteParams = { params: Promise<{ id: string }> }
@@ -37,10 +36,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const body: unknown = await request.json()
     const parsed = createRateCardSchema.safeParse(body)
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' }, { status: 400 })
+      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
     }
 
-    const { machineId, siteId, mode, rateType, rate, effectiveFrom } = parsed.data
+    const { machineId, siteId, mode, rateType, rate } = parsed.data
 
     try {
       const rateCard = await prisma.rateCard.create({
@@ -52,7 +51,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           mode: mode ?? null,
           rateType,
           rate,
-          effectiveFrom: new Date(effectiveFrom),
         },
       })
       return NextResponse.json({ id: rateCard.id }, { status: 201 })
@@ -64,7 +62,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         (dbErr as { code: string }).code === 'P2002'
       ) {
         return NextResponse.json(
-          { error: 'A rate card already exists for this combination on this date. Use a different effective date to update the rate.' },
+          { error: 'A rate card already exists for this combination. Use Edit Rate to update it.' },
           { status: 409 }
         )
       }

@@ -13,8 +13,6 @@ const createStaffSchema = z.object({
   address: z.string().optional(),
   bloodGroup: z.string().optional(),
   designation: z.string().optional(),
-  defaultBatha: z.coerce.number().min(0).default(0),
-  salary: z.coerce.number().min(0).default(0),
 })
 
 export async function POST(request: NextRequest) {
@@ -32,7 +30,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' }, { status: 400 })
     }
 
-    const { name, email, roleId, mobile, address, bloodGroup, designation, defaultBatha, salary } = parsed.data
+    const { name, email, roleId, mobile, address, bloodGroup, designation } = parsed.data
     const businessId = user.businessId
 
     // Check email not already used in this business
@@ -71,8 +69,6 @@ export async function POST(request: NextRequest) {
         address: address || null,
         bloodGroup: bloodGroup || null,
         designation: designation || null,
-        defaultBatha,
-        salary,
       },
     })
 

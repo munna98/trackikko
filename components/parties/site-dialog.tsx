@@ -18,11 +18,12 @@ import {
 const siteSchema = z.object({
   name: z.string().min(1, 'Site name is required'),
   location: z.string().optional(),
+  batha: z.coerce.number().min(0).default(0),
 })
 
 type SiteFormValues = z.infer<typeof siteSchema>
 
-type Site = { id: string; name: string; location?: string }
+type Site = { id: string; name: string; location?: string; batha?: number }
 
 type SiteDialogProps = {
   partyId: string
@@ -41,6 +42,7 @@ export function SiteDialog({ partyId, defaultValues, trigger }: SiteDialogProps)
     defaultValues: {
       name: defaultValues?.name ?? '',
       location: defaultValues?.location ?? '',
+      batha: defaultValues?.batha ?? 0,
     },
   })
 
@@ -56,6 +58,7 @@ export function SiteDialog({ partyId, defaultValues, trigger }: SiteDialogProps)
       body: JSON.stringify({
         name: values.name,
         location: values.location || null,
+        batha: values.batha,
       }),
     })
 
@@ -98,6 +101,7 @@ export function SiteDialog({ partyId, defaultValues, trigger }: SiteDialogProps)
                 <FormMessage />
               </FormItem>
             )} />
+
             <FormField control={form.control} name="location" render={({ field }) => (
               <FormItem>
                 <FormLabel>Location <span className="text-muted-foreground text-xs">(optional)</span></FormLabel>
@@ -105,6 +109,17 @@ export function SiteDialog({ partyId, defaultValues, trigger }: SiteDialogProps)
                 <FormMessage />
               </FormItem>
             )} />
+
+            <FormField control={form.control} name="batha" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Batha (₹ / day)</FormLabel>
+                <FormControl>
+                  <Input type="number" min={0} step={1} placeholder="0" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+
             {errors.root && <p className="text-sm text-destructive">{errors.root.message}</p>}
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

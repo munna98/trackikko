@@ -36,7 +36,7 @@ export default async function PartyDetailPage({ params }: PageProps) {
             machine: { include: { machineType: true } },
             site: true,
           },
-          orderBy: { effectiveFrom: 'desc' },
+          orderBy: { createdAt: 'desc' },
         },
       },
     }),
@@ -59,6 +59,7 @@ export default async function PartyDetailPage({ params }: PageProps) {
     id: s.id,
     name: s.name,
     location: s.location ?? undefined,
+    batha: s.batha.toNumber(),
     isActive: s.isActive,
   }))
 
@@ -69,7 +70,6 @@ export default async function PartyDetailPage({ params }: PageProps) {
     mode: rc.mode,
     rateType: rc.rateType,
     rate: rc.rate.toNumber(),
-    effectiveFrom: rc.effectiveFrom.toISOString(),
     isActive: rc.isActive,
   }))
 
