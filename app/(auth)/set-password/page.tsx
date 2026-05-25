@@ -1,8 +1,6 @@
 'use client'
 
-import { Suspense } from 'react'
-
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -25,7 +23,6 @@ const schema = z
   })
 
 type FormData = z.infer<typeof schema>
-
 type PageState = 'loading' | 'ready' | 'success' | 'error'
 
 function SetPasswordInner() {
@@ -37,35 +34,45 @@ function SetPasswordInner() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    watch,
-  } = useForm<FormData>({ resolver: zodResolver(schema) })
-
+  const { register, handleSubmit, formState: { errors }, watch } = useForm<FormData>({
+    resolver: zodResolver(schema),
+  })
   const passwordValue = watch('password', '')
 
-  // Check if we have a valid session (set by /api/auth/callback)
   useEffect(() => {
     const supabase = createClient()
 
-    // Check for an error forwarded from the callback route
-    const urlError = searchParams.get('error')
-    if (urlError) {
-      setPageState('error')
-      setErrorMessage('Your invite link has expired or is invalid. Please ask your admin to resend the invite.')
-      return
-    }
+    async function init() {
+      // Supabase PKCE flow: the invite link lands here with ?code=XXX
+      // We exchange it for a session directly on this page
+      const code = searchParams.get('code')
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code)
+        if (error) {
+          setPageState('error')
+          setErrorMessage('Your invite link has expired or is invalid. Please ask your admin to resend the invite.')
+          return
+        }
+        // Code exchanged — session is now active, show the form
+        setPageState('ready')
+        return
+      }
+
+      // No code — maybe they refreshed the page after already exchanging the code
+      // Check if a session already exists
+      const { data: { session } } = await supabase.auth.getSession()
       if (session) {
         setPageState('ready')
-      } else {
-        setPageState('error')
-        setErrorMessage('Your invite link has expired or is invalid. Please ask your admin to resend the invite.')
+        return
       }
-    })
+
+      // No code, no session — invalid/expired link
+      setPageState('error')
+      setErrorMessage('Your invite link has expired or is invalid. Please ask your admin to resend the invite.')
+    }
+
+    void init()
   }, [searchParams])
 
   const onSubmit = async (data: FormData) => {
@@ -75,67 +82,39 @@ function SetPasswordInner() {
     try {
       const supabase = createClient()
 
-      // Set the user's password
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: data.password,
-      })
-
+      const { error: updateError } = await supabase.auth.updateUser({ password: data.password })
       if (updateError) {
         setErrorMessage(updateError.message)
         setSubmitting(false)
         return
       }
 
-      // Get session to find the user's email for role-based routing
       const { data: { session } } = await supabase.auth.getSession()
+      setPageState('success')
+      await new Promise((r) => setTimeout(r, 1200))
+
       if (!session?.user?.email) {
         router.push('/dashboard')
         return
       }
 
-      setPageState('success')
-      await new Promise((r) => setTimeout(r, 1200))
-
-      // Fetch user profile for role-based redirect
       const response = await fetch('/api/auth/me', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: session.user.email }),
       })
 
-      if (!response.ok) {
-        router.push('/dashboard')
-        return
-      }
+      if (!response.ok) { router.push('/dashboard'); return }
 
       const user = await response.json() as {
-        id: string
-        email: string
-        isActive: boolean
-        roleId: string
-        businessId: string | null
+        id: string; email: string; isActive: boolean
+        roleId: string; businessId: string | null
       } | null
 
-      if (!user || !user.isActive) {
-        router.push('/login')
-        return
-      }
-
-      if (user.roleId === 'master_admin') {
-        router.push('/master')
-        return
-      }
-
-      if (!user.businessId) {
-        router.push('/setup')
-        return
-      }
-
-      if (user.roleId === 'operator') {
-        router.push('/operator/log-job')
-        return
-      }
-
+      if (!user || !user.isActive) { router.push('/login'); return }
+      if (user.roleId === 'master_admin') { router.push('/master'); return }
+      if (!user.businessId) { router.push('/setup'); return }
+      if (user.roleId === 'operator') { router.push('/operator/log-job'); return }
       router.push('/dashboard')
     } catch {
       setErrorMessage('Something went wrong. Please try again.')
@@ -143,7 +122,6 @@ function SetPasswordInner() {
     }
   }
 
-  // Password strength indicator
   const getStrength = (pwd: string) => {
     let score = 0
     if (pwd.length >= 8) score++
@@ -152,7 +130,6 @@ function SetPasswordInner() {
     if (/[^A-Za-z0-9]/.test(pwd)) score++
     return score
   }
-
   const strength = getStrength(passwordValue)
   const strengthLabel = ['', 'Weak', 'Fair', 'Good', 'Strong'][strength]
   const strengthColor = ['', '#ef4444', '#f97316', '#eab308', '#22c55e'][strength]
@@ -160,7 +137,6 @@ function SetPasswordInner() {
   return (
     <main className="min-h-screen flex items-center justify-center px-4 bg-background">
       <div className="w-full max-w-sm">
-        {/* Logo / Brand */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 shadow-lg bg-primary">
             <Coffee className="w-8 h-8 text-primary-foreground" />
@@ -169,7 +145,6 @@ function SetPasswordInner() {
           <p className="text-sm mt-1 text-muted-foreground">Heavy Equipment Management</p>
         </div>
 
-        {/* Loading */}
         {pageState === 'loading' && (
           <div className="rounded-2xl border border-border bg-card p-8 shadow-2xl text-center">
             <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary mb-3" />
@@ -177,7 +152,6 @@ function SetPasswordInner() {
           </div>
         )}
 
-        {/* Error */}
         {pageState === 'error' && (
           <div className="rounded-2xl border border-border bg-card p-6 shadow-2xl space-y-4">
             <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
@@ -185,14 +159,11 @@ function SetPasswordInner() {
             </div>
             <p className="text-xs text-center text-muted-foreground">
               Already have a password?{' '}
-              <a href="/login" className="text-primary underline underline-offset-2 hover:opacity-80">
-                Sign in
-              </a>
+              <a href="/login" className="text-primary underline underline-offset-2 hover:opacity-80">Sign in</a>
             </p>
           </div>
         )}
 
-        {/* Success */}
         {pageState === 'success' && (
           <div className="rounded-2xl border border-border bg-card p-8 shadow-2xl text-center">
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-green-500/10 mb-4">
@@ -204,20 +175,15 @@ function SetPasswordInner() {
           </div>
         )}
 
-        {/* Form */}
         {pageState === 'ready' && (
           <div className="rounded-2xl border border-border bg-card p-6 shadow-2xl">
             <h2 className="text-lg font-semibold mb-1 text-card-foreground">Set your password</h2>
             <p className="text-sm text-muted-foreground mb-6">
               Create a password to secure your Trackikko account.
             </p>
-
             <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-              {/* Password */}
               <div className="space-y-1.5">
-                <label htmlFor="password" className="text-sm font-medium text-foreground">
-                  New Password
-                </label>
+                <label htmlFor="password" className="text-sm font-medium text-foreground">New Password</label>
                 <div className="relative">
                   <input
                     id="password"
@@ -228,27 +194,18 @@ function SetPasswordInner() {
                     className="w-full rounded-lg border border-input bg-muted px-3 py-2.5 pr-10 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-all focus:ring-2 focus:ring-ring focus:border-ring"
                     style={{ borderColor: errors.password ? 'var(--destructive)' : undefined }}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  >
+                  <button type="button" onClick={() => setShowPassword(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                {errors.password && (
-                  <p className="text-xs text-destructive">{errors.password.message}</p>
-                )}
-                {/* Strength bar */}
+                {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
                 {passwordValue.length > 0 && (
                   <div className="space-y-1 pt-0.5">
                     <div className="flex gap-1">
                       {[1, 2, 3, 4].map((i) => (
-                        <div
-                          key={i}
-                          className="h-1 flex-1 rounded-full transition-all duration-300"
-                          style={{ backgroundColor: i <= strength ? strengthColor : 'var(--border)' }}
-                        />
+                        <div key={i} className="h-1 flex-1 rounded-full transition-all duration-300"
+                          style={{ backgroundColor: i <= strength ? strengthColor : 'var(--border)' }} />
                       ))}
                     </div>
                     <p className="text-xs" style={{ color: strengthColor }}>{strengthLabel}</p>
@@ -256,11 +213,8 @@ function SetPasswordInner() {
                 )}
               </div>
 
-              {/* Confirm Password */}
               <div className="space-y-1.5">
-                <label htmlFor="confirmPassword" className="text-sm font-medium text-foreground">
-                  Confirm Password
-                </label>
+                <label htmlFor="confirmPassword" className="text-sm font-medium text-foreground">Confirm Password</label>
                 <div className="relative">
                   <input
                     id="confirmPassword"
@@ -271,32 +225,22 @@ function SetPasswordInner() {
                     className="w-full rounded-lg border border-input bg-muted px-3 py-2.5 pr-10 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-all focus:ring-2 focus:ring-ring focus:border-ring"
                     style={{ borderColor: errors.confirmPassword ? 'var(--destructive)' : undefined }}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirm((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  >
+                  <button type="button" onClick={() => setShowConfirm(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
                     {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                {errors.confirmPassword && (
-                  <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>
-                )}
+                {errors.confirmPassword && <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>}
               </div>
 
-              {/* Global error */}
               {errorMessage && (
                 <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive" role="alert">
                   {errorMessage}
                 </div>
               )}
 
-              <button
-                id="set-password-btn"
-                type="submit"
-                disabled={submitting}
-                className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity duration-150 hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed mt-2"
-              >
+              <button id="set-password-btn" type="submit" disabled={submitting}
+                className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity duration-150 hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed mt-2">
                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                 {submitting ? 'Setting password…' : 'Set Password & Continue'}
               </button>
