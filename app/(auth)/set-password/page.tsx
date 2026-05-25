@@ -41,59 +41,60 @@ function SetPasswordInner() {
 
   useEffect(() => {
     const supabase = createClient()
-    let settled = false
 
-    function markReady() {
-      if (settled) return
-      settled = true
-      setPageState('ready')
-    }
-
-    function markError() {
-      if (settled) return
-      settled = true
-      setPageState('error')
-      setErrorMessage(
-        'Your invite link has expired or is invalid. Please ask your admin to resend the invite.'
-      )
-    }
-
-    // ── Path 1: PKCE flow — ?code= in the query string ──────────────────────
-    const code = searchParams.get('code')
-    if (code) {
-      supabase.auth
-        .exchangeCodeForSession(code)
-        .then(({ error }) => (error ? markError() : markReady()))
-      // onAuthStateChange not needed for PKCE; return early
-      return
-    }
-
-    // ── Path 2: Implicit flow — #access_token= in the URL hash ──────────────
-    // The Supabase browser client automatically reads the hash on load and
-    // fires onAuthStateChange with event = 'SIGNED_IN'.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION')) {
-        markReady()
+    async function init() {
+      // ── Strategy 1: PKCE flow — ?code= in query string ──────────────────
+      const code = searchParams.get('code')
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code)
+        if (error) {
+          setPageState('error')
+          setErrorMessage('Your invite link has expired or is invalid. Please ask your admin to resend the invite.')
+          return
+        }
+        setPageState('ready')
+        return
       }
-    })
 
-    // Also check immediately — if the hash was already consumed (e.g. page
-    // refresh after first load) a session might already be stored.
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) markReady()
-    })
+      // ── Strategy 2: Implicit flow — #access_token= in the URL hash ───────
+      // We manually parse the hash because onAuthStateChange can fire before
+      // our listener is registered, causing us to miss the SIGNED_IN event.
+      const hash = typeof window !== 'undefined' ? window.location.hash : ''
+      if (hash) {
+        const params = new URLSearchParams(hash.replace(/^#/, ''))
+        const accessToken = params.get('access_token')
+        const refreshToken = params.get('refresh_token')
 
-    // Fallback: if nothing fires within 5 s, the link is truly invalid
-    const timeout = setTimeout(() => {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (!session) markError()
-      })
-    }, 5000)
+        if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          })
+          if (error) {
+            setPageState('error')
+            setErrorMessage('Your invite link has expired or is invalid. Please ask your admin to resend the invite.')
+            return
+          }
+          // Clear the hash from the URL so tokens aren't visible / reused
+          window.history.replaceState(null, '', window.location.pathname)
+          setPageState('ready')
+          return
+        }
+      }
 
-    return () => {
-      subscription.unsubscribe()
-      clearTimeout(timeout)
+      // ── Strategy 3: Session already exists (e.g. page refresh) ──────────
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        setPageState('ready')
+        return
+      }
+
+      // Nothing worked — link is expired or invalid
+      setPageState('error')
+      setErrorMessage('Your invite link has expired or is invalid. Please ask your admin to resend the invite.')
     }
+
+    void init()
   }, [searchParams])
 
   const onSubmit = async (data: FormData) => {
