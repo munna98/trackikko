@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
 
     const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
       data: { name },
-      redirectTo: `${appUrl}/login`,
+      redirectTo: `${appUrl}/set-password`,
     })
 
     if (inviteError) {
