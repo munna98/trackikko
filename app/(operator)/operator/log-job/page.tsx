@@ -66,7 +66,7 @@ export default async function LogJobPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">Log Job</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Record today&apos;s machine work — hours, trips, or kilometres.
+          Record today&apos;s machine work.
         </p>
       </div>
 

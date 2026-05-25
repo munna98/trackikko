@@ -91,7 +91,7 @@ export default function LoginPage() {
       }
 
       if (roleId === 'operator') {
-        router.push('/operator/log-job')
+        router.push('/operator/my-records')
         return
       }
 

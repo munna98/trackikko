@@ -17,7 +17,7 @@ export default async function RootPage() {
   }
 
   if (user.roleId === 'operator') {
-    redirect('/operator/log-job')
+    redirect('/operator/my-records')
   }
 
   redirect('/dashboard')

@@ -133,7 +133,7 @@ function SetPasswordInner() {
       if (!user || !user.isActive) { router.push('/login'); return }
       if (user.roleId === 'master_admin') { router.push('/master'); return }
       if (!user.businessId) { router.push('/setup'); return }
-      if (user.roleId === 'operator') { router.push('/operator/log-job'); return }
+      if (user.roleId === 'operator') { router.push('/operator/my-records'); return }
       router.push('/dashboard')
     } catch {
       setErrorMessage('Something went wrong. Please try again.')

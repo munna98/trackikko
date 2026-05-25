@@ -5,10 +5,10 @@ import { usePathname } from 'next/navigation'
 import { PlusCircle, Receipt, Banknote, ClipboardList } from 'lucide-react'
 
 const operatorNavItems = [
+  { href: '/operator/my-records', icon: ClipboardList, label: 'My Records' },
   { href: '/operator/log-job', icon: PlusCircle, label: 'Log Job' },
   { href: '/operator/log-expense', icon: Receipt, label: 'Log Expense' },
   { href: '/operator/log-advance', icon: Banknote, label: 'Log Advance' },
-  { href: '/operator/my-records', icon: ClipboardList, label: 'My Records' },
 ]
 
 export function OperatorNav() {
