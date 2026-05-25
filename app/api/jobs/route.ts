@@ -69,6 +69,10 @@ export async function POST(request: NextRequest) {
     if (!machine) return NextResponse.json({ error: 'Machine not found' }, { status: 404 })
     if (!site) return NextResponse.json({ error: 'Site not found' }, { status: 404 })
 
+    // Mode is required for machines that support it (e.g. Excavator)
+    if (machine.machineType.hasModes && !mode)
+      return NextResponse.json({ error: 'Mode is required for this machine' }, { status: 400 })
+
     const trackingUnit = machine.machineType.trackingUnit
 
     // Compute quantity

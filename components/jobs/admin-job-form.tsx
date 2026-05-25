@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Loader2, AlertCircle } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -143,6 +143,7 @@ export function AdminJobForm({ machines, sites, rateCards, staff }: AdminJobForm
 
   async function onSubmit(values: AdminJobFormValues) {
     if (!selectedMachine) { form.setError('machineId', { message: 'Select a machine' }); return }
+    if (selectedMachine.hasModes && !values.mode) { form.setError('mode', { message: 'Select a mode for this machine' }); return }
     if (selectedMachine.trackingUnit === 'trips') {
       if (values.tripCount == null) { form.setError('tripCount', { message: 'Trip count is required' }); return }
     } else {
@@ -320,22 +321,8 @@ export function AdminJobForm({ machines, sites, rateCards, staff }: AdminJobForm
         <FormField control={form.control} name="actualRate" render={({ field }) => (
           <FormItem>
             <FormLabel>Rate (₹) <span className="text-destructive">*</span></FormLabel>
-            {rateCard && (
-              <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 mb-2">
-                <span className="text-sm font-semibold text-primary">
-                  {formatINR(rateCard.rate)} / {rateCard.rateType === 'per_hour' ? 'hr' : 'trip'}
-                </span>
-                <span className="text-xs text-muted-foreground">— from rate card</span>
-              </div>
-            )}
-            {watchedSiteId && watchedMachineId && !rateCard && (
-              <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 mb-2">
-                <AlertCircle className="w-3.5 h-3.5 text-destructive" />
-                <span className="text-xs text-destructive">No rate card — enter manually</span>
-              </div>
-            )}
             <FormControl>
-              <Input inputMode="decimal" type="number" min={0} placeholder="0"
+              <Input inputMode="decimal" type="number" min={0} step="any" placeholder="0"
                 {...field}
                 value={field.value ?? ''}
                 onChange={(e) => field.onChange(Number(e.target.value))}
