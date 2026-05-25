@@ -3,14 +3,12 @@ import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { EmptyState } from '@/components/ui/empty-state'
 import { StaffSheet } from '@/components/staff/staff-sheet'
 import { DeactivateButton } from '@/components/staff/deactivate-button'
+import { StaffTabs } from '@/components/staff/staff-tabs'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { formatINR, getInitials } from '@/lib/utils'
-import { Phone, Mail, Banknote, Receipt, ChevronLeft } from 'lucide-react'
+import { getInitials } from '@/lib/utils'
+import { Phone, Mail, ChevronLeft } from 'lucide-react'
 import type { Metadata } from 'next'
 
 type PageProps = { params: Promise<{ id: string }> }
@@ -29,28 +27,47 @@ export default async function StaffDetailPage({ params }: PageProps) {
   const businessId = user.businessId!
   const isAdmin = user.roleId === 'admin' || user.roleId === 'master_admin'
 
-  const staffMember = await prisma.user.findUnique({
-    where: { id, deletedAt: null },
-    include: { role: true },
-  })
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+
+  const [staffMember, advances, payments, accounts, jobsThisMonth] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id, deletedAt: null },
+      include: { role: true },
+    }),
+    prisma.salaryAdvance.findMany({
+      where: { staffId: id, businessId, deletedAt: null },
+      include: { account: { select: { name: true } } },
+      orderBy: { date: 'desc' },
+    }),
+    prisma.staffPayment.findMany({
+      where: { staffId: id, businessId, deletedAt: null },
+      include: { account: { select: { name: true } } },
+      orderBy: { periodTo: 'desc' },
+    }),
+    prisma.account.findMany({
+      where: { businessId, deletedAt: null, isActive: true },
+      select: { id: true, name: true, type: true },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.job.findMany({
+      where: {
+        staffId: id,
+        businessId,
+        deletedAt: null,
+        date: { gte: monthStart },
+      },
+      select: { batha: true },
+    }),
+  ])
 
   if (!staffMember || staffMember.businessId !== businessId) notFound()
 
-  // Jobs this month
-  const now = new Date()
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-  const jobsThisMonth = await prisma.job.findMany({
-    where: {
-      staffId: id,
-      businessId,
-      deletedAt: null,
-      date: { gte: monthStart },
-    },
-    select: { batha: true },
-  })
-
   type JobRow = (typeof jobsThisMonth)[number]
-  const bathaThisMonth = jobsThisMonth.reduce((s: number, j: JobRow) => s + j.batha.toNumber(), 0)
+  const bathaThisMonth = jobsThisMonth.reduce(
+    (s: number, j: JobRow) => s + j.batha.toNumber(),
+    0,
+  )
   const isSelf = id === user.id
 
   const ROLE_LABEL: Record<string, string> = {
@@ -59,6 +76,38 @@ export default async function StaffDetailPage({ params }: PageProps) {
     accountant: 'Accountant',
     operator: 'Operator',
   }
+
+  // ── Serialise all Decimal / Date fields ────────────────────
+  type AdvanceRow = (typeof advances)[number]
+  type PaymentRow = (typeof payments)[number]
+  type AccountRow = (typeof accounts)[number]
+
+  const serialisedAdvances = advances.map((a: AdvanceRow) => ({
+    id: a.id,
+    date: a.date.toISOString().split('T')[0],
+    amount: a.amount.toNumber(),
+    accountName: a.account.name,
+    notes: a.notes,
+  }))
+
+  const serialisedPayments = payments.map((p: PaymentRow) => ({
+    id: p.id,
+    periodFrom: p.periodFrom.toISOString().split('T')[0],
+    periodTo: p.periodTo.toISOString().split('T')[0],
+    daysWorked: p.daysWorked,
+    bathaTotal: p.bathaTotal?.toNumber() ?? 0,
+    salary: p.salary.toNumber(),
+    advancesDeducted: p.advancesDeducted?.toNumber() ?? 0,
+    netPaid: p.netPaid.toNumber(),
+    accountName: p.account.name,
+    notes: p.notes,
+  }))
+
+  const serialisedAccounts = accounts.map((a: AccountRow) => ({
+    id: a.id,
+    name: a.name,
+    type: a.type as string,
+  }))
 
   return (
     <div className="space-y-6">
@@ -83,7 +132,9 @@ export default async function StaffDetailPage({ params }: PageProps) {
               <p className="text-sm text-muted-foreground">{staffMember.designation}</p>
             )}
             <div className="flex flex-wrap gap-1.5">
-              <Badge variant="secondary">{ROLE_LABEL[staffMember.roleId] ?? staffMember.role.name}</Badge>
+              <Badge variant="secondary">
+                {ROLE_LABEL[staffMember.roleId] ?? staffMember.role.name}
+              </Badge>
               {staffMember.bloodGroup && staffMember.bloodGroup !== 'Unknown' && (
                 <Badge variant="outline">{staffMember.bloodGroup}</Badge>
               )}
@@ -91,7 +142,10 @@ export default async function StaffDetailPage({ params }: PageProps) {
             </div>
             <div className="flex flex-wrap gap-3 text-sm text-muted-foreground mt-1">
               {staffMember.mobile && (
-                <a href={`tel:${staffMember.mobile}`} className="flex items-center gap-1 hover:text-primary transition-colors">
+                <a
+                  href={`tel:${staffMember.mobile}`}
+                  className="flex items-center gap-1 hover:text-primary transition-colors"
+                >
                   <Phone className="h-3.5 w-3.5" />
                   {staffMember.mobile}
                 </a>
@@ -129,65 +183,17 @@ export default async function StaffDetailPage({ params }: PageProps) {
         )}
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="overview" className="flex-col">
-        <TabsList className="w-full h-auto flex-wrap justify-start gap-0.5 p-1">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="advances">Advances</TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview">
-          {/* Stats row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-
-            <Card className={staffMember.advanceBalance.toNumber() > 0 ? 'border-amber-200 dark:border-amber-800/30 bg-amber-50/50 dark:bg-amber-900/10' : ''}>
-              <CardHeader className="pb-1">
-                <CardTitle className="text-xs text-muted-foreground uppercase tracking-wide">Advance Balance</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className={`text-xl font-bold ${staffMember.advanceBalance.toNumber() > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-foreground'}`}>
-                  {formatINR(staffMember.advanceBalance.toNumber())}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-1">
-                <CardTitle className="text-xs text-muted-foreground uppercase tracking-wide">Days Worked (Month)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xl font-bold text-foreground">{jobsThisMonth.length}</p>
-                <p className="text-xs text-muted-foreground">jobs this month</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Batha earned this month */}
-          {jobsThisMonth.length > 0 && (
-            <div className="rounded-2xl border border-border bg-card p-4">
-              <p className="text-sm text-muted-foreground">Batha Earned This Month</p>
-              <p className="text-2xl font-bold text-foreground mt-1">{formatINR(bathaThisMonth)}</p>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="advances">
-          <EmptyState
-            icon={Banknote}
-            title="Salary Advances"
-            description="Advance management coming in Phase 4."
-          />
-        </TabsContent>
-
-        <TabsContent value="payments">
-          <EmptyState
-            icon={Receipt}
-            title="Payment History"
-            description="Payment history coming in Phase 4."
-          />
-        </TabsContent>
-      </Tabs>
+      {/* Tabs (client component) */}
+      <StaffTabs
+        staffId={id}
+        isAdmin={isAdmin}
+        advanceBalance={staffMember.advanceBalance.toNumber()}
+        daysWorkedThisMonth={jobsThisMonth.length}
+        bathaThisMonth={bathaThisMonth}
+        advances={serialisedAdvances}
+        payments={serialisedPayments}
+        accounts={serialisedAccounts}
+      />
     </div>
   )
 }

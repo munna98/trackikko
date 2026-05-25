@@ -25,7 +25,7 @@ export default async function PartyDetailPage({ params }: PageProps) {
   const businessId = user.businessId!
   const isAdmin = user.roleId === 'admin' || user.roleId === 'master_admin'
 
-  const [party, machines] = await Promise.all([
+  const [party, machines, settlements, accounts] = await Promise.all([
     prisma.party.findUnique({
       where: { id, deletedAt: null },
       include: {
@@ -45,15 +45,28 @@ export default async function PartyDetailPage({ params }: PageProps) {
       include: { machineType: true },
       orderBy: { name: 'asc' },
     }),
+    prisma.partySettlement.findMany({
+      where: { partyId: id, businessId, deletedAt: null },
+      include: { account: { select: { name: true } } },
+      orderBy: { date: 'desc' },
+    }),
+    prisma.account.findMany({
+      where: { businessId, deletedAt: null, isActive: true },
+      select: { id: true, name: true, type: true },
+      orderBy: { name: 'asc' },
+    }),
   ])
 
   if (!party || party.businessId !== businessId) notFound()
 
   const runningBalance = party.runningBalance.toNumber()
 
+  // ── Serialise all Decimal / Date fields ────────────────────
   type SiteRow = (typeof party.sites)[number]
   type RcRow = (typeof party.rateCards)[number]
   type MachineRow = (typeof machines)[number]
+  type SettlementRow = (typeof settlements)[number]
+  type AccountRow = (typeof accounts)[number]
 
   const serialisedSites = party.sites.map((s: SiteRow) => ({
     id: s.id,
@@ -78,6 +91,22 @@ export default async function PartyDetailPage({ params }: PageProps) {
     name: m.name,
     trackingUnit: m.machineType.trackingUnit as 'hours' | 'trips' | 'km',
     hasModes: m.machineType.hasModes,
+  }))
+
+  const serialisedSettlements = settlements.map((s: SettlementRow) => ({
+    id: s.id,
+    date: s.date.toISOString().split('T')[0],
+    balanceBefore: s.balanceBefore.toNumber(),
+    amountReceived: s.amountReceived.toNumber(),
+    writeoffAmount: s.writeoffAmount?.toNumber() ?? 0,
+    accountName: s.account.name,
+    notes: s.notes,
+  }))
+
+  const serialisedAccounts = accounts.map((a: AccountRow) => ({
+    id: a.id,
+    name: a.name,
+    type: a.type as string,
   }))
 
   return (
@@ -111,7 +140,9 @@ export default async function PartyDetailPage({ params }: PageProps) {
                 <MapPin className="h-3.5 w-3.5" />{party.address}
               </span>
             )}
-            {party.gstNo && <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">{party.gstNo}</span>}
+            {party.gstNo && (
+              <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">{party.gstNo}</span>
+            )}
           </div>
 
           {/* Balance */}
@@ -120,11 +151,13 @@ export default async function PartyDetailPage({ params }: PageProps) {
               <p className="text-lg font-semibold text-muted-foreground">Settled</p>
             ) : runningBalance > 0 ? (
               <p className="text-2xl font-bold text-destructive">
-                {formatINR(runningBalance)} <span className="text-sm font-normal">Dr — they owe us</span>
+                {formatINR(runningBalance)}{' '}
+                <span className="text-sm font-normal">Dr — they owe us</span>
               </p>
             ) : (
               <p className="text-2xl font-bold text-amber-500">
-                {formatINR(Math.abs(runningBalance))} <span className="text-sm font-normal">Cr — we owe them</span>
+                {formatINR(Math.abs(runningBalance))}{' '}
+                <span className="text-sm font-normal">Cr — we owe them</span>
               </p>
             )}
           </div>
@@ -154,6 +187,9 @@ export default async function PartyDetailPage({ params }: PageProps) {
         rateCards={serialisedRateCards}
         machines={serialisedMachines}
         isAdmin={isAdmin}
+        settlements={serialisedSettlements}
+        accounts={serialisedAccounts}
+        runningBalance={runningBalance}
       />
     </div>
   )

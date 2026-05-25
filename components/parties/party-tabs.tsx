@@ -11,7 +11,8 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { SiteDialog } from '@/components/parties/site-dialog'
 import { RateCardDialog } from '@/components/parties/rate-card-dialog'
 import { EditRateDialog } from '@/components/parties/edit-rate-dialog'
-import { formatINR } from '@/lib/utils'
+import { PartySettlementDialog } from '@/components/parties/party-settlement-dialog'
+import { formatINR, formatDate } from '@/lib/utils'
 
 type Site = {
   id: string
@@ -38,15 +39,40 @@ type Machine = {
   hasModes: boolean
 }
 
+type AccountOption = { id: string; name: string; type: string }
+
+type PartySettlementRow = {
+  id: string
+  date: string
+  balanceBefore: number
+  amountReceived: number
+  writeoffAmount: number
+  accountName: string
+  notes: string | null
+}
+
 type PartyTabsProps = {
   partyId: string
   sites: Site[]
   rateCards: RateCard[]
   machines: Machine[]
   isAdmin: boolean
+  // Settlements
+  settlements: PartySettlementRow[]
+  accounts: AccountOption[]
+  runningBalance: number
 }
 
-export function PartyTabs({ partyId, sites, rateCards, machines, isAdmin }: PartyTabsProps) {
+export function PartyTabs({
+  partyId,
+  sites,
+  rateCards,
+  machines,
+  isAdmin,
+  settlements,
+  accounts,
+  runningBalance,
+}: PartyTabsProps) {
   const router = useRouter()
   const [togglingId, setTogglingId] = React.useState<string | null>(null)
   const [toggleTarget, setToggleTarget] = React.useState<boolean>(false)
@@ -73,10 +99,17 @@ export function PartyTabs({ partyId, sites, rateCards, machines, isAdmin }: Part
         <TabsTrigger value="sites">Sites</TabsTrigger>
         <TabsTrigger value="rate-cards">Rate Cards</TabsTrigger>
         <TabsTrigger value="ledger">Ledger</TabsTrigger>
-        <TabsTrigger value="settlements">Settlements</TabsTrigger>
+        <TabsTrigger value="settlements">
+          Settlements
+          {settlements.length > 0 && (
+            <span className="ml-1.5 rounded-full bg-primary/10 text-primary text-[10px] font-semibold px-1.5 py-0.5 leading-none">
+              {settlements.length}
+            </span>
+          )}
+        </TabsTrigger>
       </TabsList>
 
-      {/* ── Sites Tab ─────────────────────────────────────── */}
+      {/* ── Sites Tab ─────────────────────────────────────────── */}
       <TabsContent value="sites">
         <div className="space-y-4">
           {isAdmin && (
@@ -165,7 +198,7 @@ export function PartyTabs({ partyId, sites, rateCards, machines, isAdmin }: Part
         </div>
       </TabsContent>
 
-      {/* ── Rate Cards Tab ────────────────────────────────── */}
+      {/* ── Rate Cards Tab ────────────────────────────────────── */}
       <TabsContent value="rate-cards">
         <div className="space-y-4">
           {isAdmin && (
@@ -233,7 +266,7 @@ export function PartyTabs({ partyId, sites, rateCards, machines, isAdmin }: Part
         </div>
       </TabsContent>
 
-      {/* ── Ledger Tab ────────────────────────────────────── */}
+      {/* ── Ledger Tab ────────────────────────────────────────── */}
       <TabsContent value="ledger">
         <EmptyState
           icon={BookOpen}
@@ -242,13 +275,100 @@ export function PartyTabs({ partyId, sites, rateCards, machines, isAdmin }: Part
         />
       </TabsContent>
 
-      {/* ── Settlements Tab ───────────────────────────────── */}
+      {/* ── Settlements Tab ───────────────────────────────────── */}
       <TabsContent value="settlements">
-        <EmptyState
-          icon={CheckCircle}
-          title="Settlements"
-          description="Settlement recording coming in Phase 5."
-        />
+        <div className="space-y-4">
+          {isAdmin && (
+            <div className="flex justify-end">
+              <PartySettlementDialog
+                partyId={partyId}
+                runningBalance={runningBalance}
+                accounts={accounts}
+              />
+            </div>
+          )}
+
+          {settlements.length === 0 ? (
+            <EmptyState
+              icon={CheckCircle}
+              title="No settlements recorded"
+              description="Payments received from this party will appear here."
+              action={
+                isAdmin ? (
+                  <PartySettlementDialog
+                    partyId={partyId}
+                    runningBalance={runningBalance}
+                    accounts={accounts}
+                  />
+                ) : undefined
+              }
+            />
+          ) : (
+            <div className="rounded-xl border border-border overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">
+                      Balance Before
+                    </th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">
+                      Received
+                    </th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">
+                      Writeoff
+                    </th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">
+                      Account
+                    </th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">
+                      Notes
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {settlements.map((s) => (
+                    <tr key={s.id} className="bg-card hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {formatDate(s.date)}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
+                        {formatINR(s.balanceBefore)}
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-green-600 dark:text-green-400">
+                        {formatINR(s.amountReceived)}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">
+                        {s.writeoffAmount > 0 ? formatINR(s.writeoffAmount) : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">
+                        {s.accountName}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell max-w-xs truncate">
+                        {s.notes ?? '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="border-t border-border bg-muted/30">
+                  <tr>
+                    <td className="px-4 py-2.5 text-xs font-medium text-muted-foreground">
+                      Total ({settlements.length})
+                    </td>
+                    <td className="hidden sm:table-cell" />
+                    <td className="px-4 py-2.5 font-bold text-green-600 dark:text-green-400">
+                      {formatINR(settlements.reduce((s, r) => s + r.amountReceived, 0))}
+                    </td>
+                    <td className="px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">
+                      {formatINR(settlements.reduce((s, r) => s + r.writeoffAmount, 0))}
+                    </td>
+                    <td colSpan={2} className="hidden lg:table-cell" />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+        </div>
       </TabsContent>
 
       {/* Confirm site deactivation */}

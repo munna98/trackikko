@@ -103,3 +103,110 @@
   FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
   ```
 - Test each trigger by inserting a row via Supabase SQL editor and checking the affected balances.
+
+---
+
+## Phase 4 — Balance Updates (handled in Prisma transactions)
+
+> **Implementation note:** The Phase 4 writes (salary advances, staff payments, party settlements) perform all balance mutations inside **Prisma interactive transactions** (`prisma.$transaction(async tx => …)`) rather than database-side triggers. This guarantees atomicity without requiring Supabase trigger setup.
+>
+> The SQL equivalents below are provided for reference if you ever want to migrate to trigger-based updates.
+
+### Salary Advance (`salary_advances` INSERT)
+
+```sql
+-- Equivalent Supabase trigger (reference only — not required)
+CREATE OR REPLACE FUNCTION fn_salary_advance_balance()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Deduct from account
+  UPDATE accounts
+  SET current_balance = current_balance - NEW.amount,
+      updated_at = NOW()
+  WHERE id = NEW.account_id;
+
+  -- Increment staff advance balance
+  UPDATE users
+  SET advance_balance = advance_balance + NEW.amount,
+      updated_at = NOW()
+  WHERE id = NEW.staff_id;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER trg_salary_advance_balance
+AFTER INSERT ON salary_advances
+FOR EACH ROW EXECUTE FUNCTION fn_salary_advance_balance();
+```
+
+### Staff Payment (`staff_payments` INSERT)
+
+```sql
+CREATE OR REPLACE FUNCTION fn_staff_payment_balance()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Deduct net paid from account
+  UPDATE accounts
+  SET current_balance = current_balance - NEW.net_paid,
+      updated_at = NOW()
+  WHERE id = NEW.account_id;
+
+  -- Reduce advance balance by advances_deducted (floor at 0)
+  UPDATE users
+  SET advance_balance = GREATEST(0, advance_balance - COALESCE(NEW.advances_deducted, 0)),
+      updated_at = NOW()
+  WHERE id = NEW.staff_id;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER trg_staff_payment_balance
+AFTER INSERT ON staff_payments
+FOR EACH ROW EXECUTE FUNCTION fn_staff_payment_balance();
+```
+
+### Party Settlement (`party_settlements` INSERT)
+
+```sql
+CREATE OR REPLACE FUNCTION fn_party_settlement_balance()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Reduce party running_balance by amount_received + writeoff_amount
+  UPDATE parties
+  SET running_balance = running_balance
+                        - NEW.amount_received
+                        - COALESCE(NEW.writeoff_amount, 0),
+      updated_at = NOW()
+  WHERE id = NEW.party_id;
+
+  -- Credit account with the cash received
+  IF NEW.amount_received > 0 THEN
+    UPDATE accounts
+    SET current_balance = current_balance + NEW.amount_received,
+        updated_at = NOW()
+    WHERE id = NEW.account_id;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER trg_party_settlement_balance
+AFTER INSERT ON party_settlements
+FOR EACH ROW EXECUTE FUNCTION fn_party_settlement_balance();
+```
+
+### Ledger Entries (Phase 4)
+
+Phase 4 API routes also write `ledger_entries` rows directly inside the same Prisma transaction:
+
+| Source table       | `type`              | `entry_type` | Key link         |
+|--------------------|---------------------|--------------|------------------|
+| `salary_advances`  | `salary_advance`    | `debit`      | `staff_id`       |
+| `staff_payments`   | `staff_payment`     | `debit`      | `staff_id`       |
+| `party_settlements`| `party_settlement`  | `credit`     | `party_id`       |
+| `party_settlements`| `party_writeoff`    | `credit`     | `party_id`       |
+
+> If you add trigger-based ledger writes later, **disable** the application-level writes in the API routes first to avoid duplicate entries.
