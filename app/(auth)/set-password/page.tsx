@@ -1,5 +1,7 @@
 'use client'
 
+import { Suspense } from 'react'
+
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -26,7 +28,7 @@ type FormData = z.infer<typeof schema>
 
 type PageState = 'loading' | 'ready' | 'success' | 'error'
 
-export default function SetPasswordPage() {
+function SetPasswordInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [pageState, setPageState] = useState<PageState>('loading')
@@ -307,5 +309,22 @@ export default function SetPasswordPage() {
         </p>
       </div>
     </main>
+  )
+}
+
+export default function SetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen flex items-center justify-center px-4 bg-background">
+        <div className="w-full max-w-sm">
+          <div className="rounded-2xl border border-border bg-card p-8 shadow-2xl text-center">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary mb-3" />
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          </div>
+        </div>
+      </main>
+    }>
+      <SetPasswordInner />
+    </Suspense>
   )
 }
