@@ -5,8 +5,8 @@ export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
   const { pathname } = request.nextUrl
 
-  // Health check always passes
-  if (pathname === '/api/health') return supabaseResponse
+  // API routes handle their own auth — never redirect them
+  if (pathname.startsWith('/api/')) return supabaseResponse
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
