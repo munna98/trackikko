@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Loader2, Coffee, Eye, EyeOff, ShieldCheck } from 'lucide-react'
 
@@ -28,6 +28,7 @@ type PageState = 'loading' | 'ready' | 'success' | 'error'
 
 export default function SetPasswordPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [pageState, setPageState] = useState<PageState>('loading')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -43,47 +44,27 @@ export default function SetPasswordPage() {
 
   const passwordValue = watch('password', '')
 
-  // Supabase puts the invite token in the URL hash (#access_token=...&type=invite)
-  // The client SDK picks it up automatically via onAuthStateChange
+  // Check if we have a valid session (set by /api/auth/callback)
   useEffect(() => {
     const supabase = createClient()
 
-    // Check if there's already a session (token already exchanged)
+    // Check for an error forwarded from the callback route
+    const urlError = searchParams.get('error')
+    if (urlError) {
+      setPageState('error')
+      setErrorMessage('Your invite link has expired or is invalid. Please ask your admin to resend the invite.')
+      return
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setPageState('ready')
-        return
-      }
-    })
-
-    // Listen for the invite token being exchanged for a session
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        setPageState('ready')
-      } else if (event === 'TOKEN_REFRESHED' && session) {
-        setPageState('ready')
-      } else if (!session && pageState !== 'loading') {
+      } else {
         setPageState('error')
         setErrorMessage('Your invite link has expired or is invalid. Please ask your admin to resend the invite.')
       }
     })
-
-    // Fallback: if after 4 seconds there's still no session, the link is likely bad
-    const timeout = setTimeout(() => {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (!session) {
-          setPageState('error')
-          setErrorMessage('Your invite link has expired or is invalid. Please ask your admin to resend the invite.')
-        }
-      })
-    }, 4000)
-
-    return () => {
-      subscription.unsubscribe()
-      clearTimeout(timeout)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [searchParams])
 
   const onSubmit = async (data: FormData) => {
     setSubmitting(true)
@@ -103,25 +84,22 @@ export default function SetPasswordPage() {
         return
       }
 
-      // Get current session to determine the user's email
+      // Get session to find the user's email for role-based routing
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.user?.email) {
-        setErrorMessage('Something went wrong. Please try logging in.')
-        setSubmitting(false)
+        router.push('/dashboard')
         return
       }
 
-      // Fetch user profile and role to redirect correctly
+      setPageState('success')
+      await new Promise((r) => setTimeout(r, 1200))
+
+      // Fetch user profile for role-based redirect
       const response = await fetch('/api/auth/me', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: session.user.email }),
       })
-
-      setPageState('success')
-
-      // Brief success pause before redirect
-      await new Promise((r) => setTimeout(r, 1200))
 
       if (!response.ok) {
         router.push('/dashboard')
@@ -185,26 +163,22 @@ export default function SetPasswordPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 shadow-lg bg-primary">
             <Coffee className="w-8 h-8 text-primary-foreground" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">
-            Trackikko
-          </h1>
-          <p className="text-sm mt-1 text-muted-foreground">
-            Heavy Equipment Management
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Trackikko</h1>
+          <p className="text-sm mt-1 text-muted-foreground">Heavy Equipment Management</p>
         </div>
 
-        {/* Loading state */}
+        {/* Loading */}
         {pageState === 'loading' && (
           <div className="rounded-2xl border border-border bg-card p-8 shadow-2xl text-center">
             <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary mb-3" />
-            <p className="text-sm text-muted-foreground">Verifying your invite link…</p>
+            <p className="text-sm text-muted-foreground">Verifying your invite…</p>
           </div>
         )}
 
-        {/* Error state */}
+        {/* Error */}
         {pageState === 'error' && (
-          <div className="rounded-2xl border border-destructive/30 bg-card p-6 shadow-2xl">
-            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive mb-4" role="alert">
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-2xl space-y-4">
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
               {errorMessage}
             </div>
             <p className="text-xs text-center text-muted-foreground">
@@ -216,7 +190,7 @@ export default function SetPasswordPage() {
           </div>
         )}
 
-        {/* Success state */}
+        {/* Success */}
         {pageState === 'success' && (
           <div className="rounded-2xl border border-border bg-card p-8 shadow-2xl text-center">
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-green-500/10 mb-4">
@@ -271,15 +245,11 @@ export default function SetPasswordPage() {
                         <div
                           key={i}
                           className="h-1 flex-1 rounded-full transition-all duration-300"
-                          style={{
-                            backgroundColor: i <= strength ? strengthColor : 'var(--border)',
-                          }}
+                          style={{ backgroundColor: i <= strength ? strengthColor : 'var(--border)' }}
                         />
                       ))}
                     </div>
-                    <p className="text-xs" style={{ color: strengthColor }}>
-                      {strengthLabel}
-                    </p>
+                    <p className="text-xs" style={{ color: strengthColor }}>{strengthLabel}</p>
                   </div>
                 )}
               </div>
@@ -314,10 +284,7 @@ export default function SetPasswordPage() {
 
               {/* Global error */}
               {errorMessage && (
-                <div
-                  className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive"
-                  role="alert"
-                >
+                <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive" role="alert">
                   {errorMessage}
                 </div>
               )}
