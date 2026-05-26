@@ -76,7 +76,8 @@ export function AdminExpenseForm({ categories, machines, staffList, accounts, in
   const router = useRouter()
 
   const form = useForm<ExpenseFormValues>({
-    resolver: zodResolver(expenseSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(expenseSchema) as any,
     defaultValues: initialData || {
       expenseCategoryId: '',
       date: todayIso(),

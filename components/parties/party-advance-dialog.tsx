@@ -63,7 +63,8 @@ export function PartyAdvanceDialog({
   const [open, setOpen] = React.useState(false)
 
   const form = useForm<AdvanceFormValues>({
-    resolver: zodResolver(advanceSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(advanceSchema) as any,
     defaultValues: {
       date: todayIso(),
       amount: 0,

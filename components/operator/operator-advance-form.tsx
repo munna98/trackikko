@@ -101,7 +101,8 @@ export function OperatorAdvanceForm({ parties, accounts }: OperatorAdvanceFormPr
   const [successInfo, setSuccessInfo] = React.useState<SuccessInfo | null>(null)
 
   const form = useForm<OperatorAdvanceFormValues>({
-    resolver: zodResolver(operatorAdvanceSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(operatorAdvanceSchema) as any,
     defaultValues: {
       partyId: '',
       date: today(),

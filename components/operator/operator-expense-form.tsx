@@ -112,7 +112,8 @@ export function OperatorExpenseForm({ categories, machines, accounts }: Operator
   const [successInfo, setSuccessInfo] = React.useState<SuccessInfo | null>(null)
 
   const form = useForm<OperatorExpenseFormValues>({
-    resolver: zodResolver(operatorExpenseSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(operatorExpenseSchema) as any,
     defaultValues: {
       expenseCategoryId: '',
       machineId: null,
