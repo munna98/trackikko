@@ -330,6 +330,42 @@ function OilChangesTab({
       cell: ({ getValue }) => (getValue() != null ? formatINR(Number(getValue())) : '—'),
     },
     { accessorKey: 'accountName', header: 'Account', cell: ({ getValue }) => String(getValue() ?? '—') },
+    ...(isAdmin
+      ? [
+          {
+            id: 'actions',
+            header: '',
+            cell: ({ row }: { row: { original: OilLog } }) => (
+              <div className="flex justify-end">
+                <OilChangeDialog
+                  machineId={machine.id}
+                  trackingUnit={machine.machineType.trackingUnit}
+                  accounts={accounts}
+                  logId={row.original.id}
+                  defaultValues={{
+                    date: new Date(row.original.date),
+                    readingAtChange: row.original.readingAtChange,
+                    oilType: row.original.oilType ?? '',
+                    cost: row.original.cost,
+                    accountId: accounts.find(a => a.name === row.original.accountName)?.id ?? '',
+                    notes: row.original.notes ?? '',
+                  }}
+                  trigger={
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-muted-foreground hover:text-foreground text-xs"
+                    >
+                      <Pencil className="h-3 w-3 mr-1" />
+                      Edit
+                    </Button>
+                  }
+                />
+              </div>
+            ),
+          } satisfies ColumnDef<OilLog>,
+        ]
+      : []),
   ]
 
   return (
@@ -343,6 +379,7 @@ function OilChangesTab({
               machineId={machine.id}
               trackingUnit={machine.machineType.trackingUnit}
               accounts={accounts}
+              lastChangedAtReading={schedule?.lastChangedAtReading}
             />
           )}
         </div>
@@ -360,23 +397,23 @@ function OilChangesTab({
       </div>
 
       {/* Right: Schedule Sidebar */}
-      <div className="order-1 lg:order-2">
-        <div className="rounded-2xl border border-border bg-card p-5 lg:sticky lg:top-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-sm text-card-foreground">Oil Change Schedule</h3>
-            {isAdmin && schedule && !showScheduleForm && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setShowScheduleForm(true)}
-                id="edit-oil-schedule-btn"
-              >
-                <Pencil className="mr-2 h-3.5 w-3.5" />
-                Edit
-              </Button>
-            )}
-          </div>
+      <div className="order-1 lg:order-2 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-sm">Oil Change Schedule</h3>
+          {isAdmin && schedule && !showScheduleForm && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowScheduleForm(true)}
+              id="edit-oil-schedule-btn"
+            >
+              <Pencil className="mr-2 h-3.5 w-3.5" />
+              Edit
+            </Button>
+          )}
+        </div>
 
+        <div className="rounded-2xl border border-border bg-card p-5 lg:sticky lg:top-4 space-y-4">
           {!schedule || showScheduleForm ? (
             <OilScheduleForm
               machineId={machine.id}

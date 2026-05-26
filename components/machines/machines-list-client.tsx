@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 type MachineRow = {
   id: string
   name: string
+  machineTypeId: string
   typeName: string
   trackingUnit: 'hours' | 'trips' | 'km'
   identifier?: string
@@ -157,7 +158,7 @@ export function MachinesListClient({ machines, machineTypes, isAdmin }: Props) {
                 machineTypes={machineTypes}
                 defaultValues={{
                   id: row.original.id,
-                  machineTypeId: '',
+                  machineTypeId: row.original.machineTypeId,
                   name: row.original.name,
                   identifier: row.original.identifier,
                   capacity: row.original.capacity,

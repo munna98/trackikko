@@ -61,23 +61,30 @@ type OilChangeDialogProps = {
   machineId: string
   trackingUnit: 'hours' | 'trips' | 'km'
   accounts: Account[]
+  logId?: string
+  defaultValues?: Partial<OilChangeFormValues>
+  trigger?: React.ReactNode
+  lastChangedAtReading?: number
 }
 
 const UNIT_LABEL: Record<string, string> = { hours: 'hrs', trips: 'trips', km: 'km' }
 
-export function OilChangeDialog({ machineId, trackingUnit, accounts }: OilChangeDialogProps) {
+export function OilChangeDialog({ machineId, trackingUnit, accounts, logId, defaultValues, trigger, lastChangedAtReading }: OilChangeDialogProps) {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
   const unit = UNIT_LABEL[trackingUnit] ?? ''
+  const isEdit = Boolean(logId)
 
   const form = useForm<OilChangeFormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(oilChangeSchema) as any,
     defaultValues: {
-      date: new Date(),
-      readingAtChange: 0,
-      oilType: '',
-      notes: '',
+      date: defaultValues?.date ?? new Date(),
+      readingAtChange: defaultValues?.readingAtChange ?? 0,
+      oilType: defaultValues?.oilType ?? '',
+      cost: defaultValues?.cost,
+      accountId: defaultValues?.accountId ?? '',
+      notes: defaultValues?.notes ?? '',
     },
   })
 
@@ -85,8 +92,18 @@ export function OilChangeDialog({ machineId, trackingUnit, accounts }: OilChange
   const hasCost = watchedCost !== undefined && watchedCost > 0
 
   async function onSubmit(values: OilChangeFormValues) {
-    const res = await fetch(`/api/machines/${machineId}/oil-changes`, {
-      method: 'POST',
+    if (!isEdit && lastChangedAtReading !== undefined && values.readingAtChange <= lastChangedAtReading) {
+      form.setError('readingAtChange', { 
+        message: `Must be greater than last changed reading (${lastChangedAtReading.toLocaleString('en-IN')} ${unit})` 
+      })
+      return
+    }
+
+    const url = isEdit ? `/api/machines/${machineId}/oil-changes/${logId}` : `/api/machines/${machineId}/oil-changes`
+    const method = isEdit ? 'PATCH' : 'POST'
+
+    const res = await fetch(url, {
+      method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...values,
@@ -112,14 +129,16 @@ export function OilChangeDialog({ machineId, trackingUnit, accounts }: OilChange
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" id="log-oil-change-btn">
-          <Plus className="mr-2 h-4 w-4" />
-          Log Oil Change
-        </Button>
+        {trigger ?? (
+          <Button size="sm" id="log-oil-change-btn">
+            <Plus className="mr-2 h-4 w-4" />
+            Log Oil Change
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Log Oil Change</DialogTitle>
+          <DialogTitle>{isEdit ? 'Edit Oil Change' : 'Log Oil Change'}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-2">
@@ -192,7 +211,7 @@ export function OilChangeDialog({ machineId, trackingUnit, accounts }: OilChange
                 <FormItem>
                   <FormLabel>Cost (₹) <span className="text-muted-foreground text-xs">(optional)</span></FormLabel>
                   <FormControl>
-                    <Input type="number" min={0} placeholder="0" {...field} />
+                    <Input type="number" min={0} placeholder="0" {...field} value={field.value ?? ''} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -246,7 +265,7 @@ export function OilChangeDialog({ machineId, trackingUnit, accounts }: OilChange
 
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Log Oil Change
+              {isEdit ? 'Save Changes' : 'Log Oil Change'}
             </Button>
           </form>
         </Form>

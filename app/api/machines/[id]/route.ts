@@ -9,7 +9,7 @@ const editMachineSchema = z.object({
   identifier: z.string().optional().nullable(),
   capacity: z.string().optional().nullable(),
   isActive: z.boolean().optional(),
-  currentMeterReading: z.coerce.number().min(0).optional(),
+  currentMeterReading: z.number().min(0).optional(),
 })
 
 type RouteParams = { params: Promise<{ id: string }> }
