@@ -176,7 +176,7 @@ export function MachineForm({ machineTypes, defaultValues, onSuccess }: MachineF
             <FormItem>
               <FormLabel>{readingLabel} <span className="text-destructive">*</span></FormLabel>
               <FormControl>
-                <Input type="number" min={0} placeholder="0" {...field} />
+                <Input type="number" min={0} step="any" placeholder="0" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
