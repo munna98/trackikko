@@ -5,8 +5,10 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
+import logoImg from '@/public/logo.png'
 import { createClient } from '@/lib/supabase/client'
-import { Loader2, Coffee } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
 const loginSchema = z.object({
   email: z.string().email('Enter a valid email address'),
@@ -107,8 +109,13 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo / Brand */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 shadow-lg bg-primary">
-            <Coffee className="w-8 h-8 text-primary-foreground" />
+          <div className="inline-flex items-center justify-center mb-4">
+            <Image
+              src={logoImg}
+              alt="Trackikko Logo"
+              className="h-16 w-auto object-contain"
+              priority
+            />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">
             Trackikko

@@ -14,7 +14,9 @@ export default async function OperatorLayout({ children }: { children: React.Rea
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <header className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 h-14 bg-sidebar border-b border-sidebar-border">
-        <span className="font-bold text-base text-primary">Trackikko</span>
+        <span className="font-bold text-base text-primary">
+          {user.business?.name || 'Trackikko'}
+        </span>
         <div className="flex items-center gap-3">
           <ThemeToggle />
           <Popover>

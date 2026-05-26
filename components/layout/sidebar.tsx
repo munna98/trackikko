@@ -6,6 +6,8 @@ import { LayoutDashboard, Truck, Users, Building2, ClipboardList, Receipt, BarCh
 import { signOut } from '@/lib/auth'
 import { getInitials } from '@/lib/utils'
 import { ThemeToggle } from '@/components/theme-toggle'
+import Image from 'next/image'
+import logoImg from '@/public/logo.png'
 
 const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -28,8 +30,8 @@ export function Sidebar({ businessName, userName, roleName }: SidebarProps) {
       {/* Business header */}
       <div className="px-5 py-5 border-b border-sidebar-border">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 bg-primary text-primary-foreground">
-            {getInitials(businessName)}
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+            <Image src={logoImg} alt="Logo" className="w-full h-full object-contain" />
           </div>
           <div className="min-w-0">
             <p className="font-bold text-sm truncate leading-tight text-sidebar-foreground">{businessName}</p>
