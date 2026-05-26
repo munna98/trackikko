@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { Badge } from '@/components/ui/badge'
 import { MachineSheet } from '@/components/machines/machine-sheet'
 import { MachineTabs } from '@/components/machines/machine-tabs'
-import { ChevronLeft } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import type { Metadata } from 'next'
 
 type PageProps = { params: Promise<{ id: string }> }
@@ -105,13 +105,13 @@ export default async function MachineDetailPage({ params }: PageProps) {
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="space-y-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Link
               href="/dashboard/machines"
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
               aria-label="Back to machines"
             >
-              <ChevronLeft className="h-6 w-6" />
+              <ArrowLeft className="w-5 h-5" />
             </Link>
             <h1 className="text-2xl font-bold text-foreground">{machine.name}</h1>
           </div>

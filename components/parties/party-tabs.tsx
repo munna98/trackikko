@@ -12,6 +12,7 @@ import { SiteDialog } from '@/components/parties/site-dialog'
 import { RateCardDialog } from '@/components/parties/rate-card-dialog'
 import { EditRateDialog } from '@/components/parties/edit-rate-dialog'
 import { PartySettlementDialog } from '@/components/parties/party-settlement-dialog'
+import { PartyAdvanceDialog } from '@/components/parties/party-advance-dialog'
 import { formatINR, formatDate } from '@/lib/utils'
 
 type Site = {
@@ -51,14 +52,23 @@ type PartySettlementRow = {
   notes: string | null
 }
 
+type PartyAdvanceRow = {
+  id: string
+  date: string
+  amount: number
+  accountName: string
+  notes: string | null
+}
+
 type PartyTabsProps = {
   partyId: string
   sites: Site[]
   rateCards: RateCard[]
   machines: Machine[]
   isAdmin: boolean
-  // Settlements
+  // Settlements & Advances
   settlements: PartySettlementRow[]
+  advances: PartyAdvanceRow[]
   accounts: AccountOption[]
   runningBalance: number
 }
@@ -70,6 +80,7 @@ export function PartyTabs({
   machines,
   isAdmin,
   settlements,
+  advances,
   accounts,
   runningBalance,
 }: PartyTabsProps) {
@@ -98,6 +109,14 @@ export function PartyTabs({
       <TabsList className="w-full h-auto flex-wrap justify-start gap-0.5 p-1">
         <TabsTrigger value="sites">Sites</TabsTrigger>
         <TabsTrigger value="rate-cards">Rate Cards</TabsTrigger>
+        <TabsTrigger value="advances">
+          Advances
+          {advances.length > 0 && (
+            <span className="ml-1.5 rounded-full bg-primary/10 text-primary text-[10px] font-semibold px-1.5 py-0.5 leading-none">
+              {advances.length}
+            </span>
+          )}
+        </TabsTrigger>
         <TabsTrigger value="ledger">Ledger</TabsTrigger>
         <TabsTrigger value="settlements">
           Settlements
@@ -260,6 +279,86 @@ export function PartyTabs({
                     </tr>
                   ))}
                 </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </TabsContent>
+
+      {/* ── Advances Tab ─────────────────────────────────────── */}
+      <TabsContent value="advances">
+        <div className="space-y-4">
+          {isAdmin && (
+            <div className="flex justify-end">
+              <PartyAdvanceDialog
+                partyId={partyId}
+                runningBalance={runningBalance}
+                accounts={accounts}
+              />
+            </div>
+          )}
+
+          {advances.length === 0 ? (
+            <EmptyState
+              icon={CheckCircle}
+              title="No advances recorded"
+              description="Advances received from this party will appear here."
+              action={
+                isAdmin ? (
+                  <PartyAdvanceDialog
+                    partyId={partyId}
+                    runningBalance={runningBalance}
+                    accounts={accounts}
+                  />
+                ) : undefined
+              }
+            />
+          ) : (
+            <div className="rounded-xl border border-border overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">
+                      Amount
+                    </th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">
+                      Account
+                    </th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">
+                      Notes
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {advances.map((a) => (
+                    <tr key={a.id} className="bg-card hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {formatDate(a.date)}
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-foreground">
+                        {formatINR(a.amount)}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">
+                        {a.accountName}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground hidden md:table-cell max-w-xs truncate">
+                        {a.notes ?? '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="border-t border-border bg-muted/30">
+                  <tr>
+                    <td className="px-4 py-2.5 text-xs font-medium text-muted-foreground">
+                      Total ({advances.length})
+                    </td>
+                    <td className="px-4 py-2.5 font-bold text-foreground">
+                      {formatINR(advances.reduce((s, r) => s + r.amount, 0))}
+                    </td>
+                    <td colSpan={2} className="hidden md:table-cell" />
+                  </tr>
+                </tfoot>
               </table>
             </div>
           )}

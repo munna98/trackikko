@@ -2,12 +2,11 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { PageHeader } from '@/components/ui/page-header'
-import { Button } from '@/components/ui/button'
+import { ArrowLeft } from 'lucide-react'
 import { AdminJobForm } from '@/components/jobs/admin-job-form'
 import type { SerialMachine, SerialSite, SerialRateCard } from '@/components/jobs/operator-job-form'
 import type { SerialStaff } from '@/components/jobs/admin-job-form'
-import { ArrowLeft } from 'lucide-react'
+
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Log Job' }
@@ -78,19 +77,17 @@ export default async function AdminNewJobPage() {
   }))
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <PageHeader
-        title="Log Job"
-        description="Record a job entry on behalf of a staff member."
-        action={
-          <Button variant="outline" asChild>
-            <Link href="/dashboard/jobs">
-              <ArrowLeft className="w-4 h-4 mr-1.5" />
-              Back to Jobs
-            </Link>
-          </Button>
-        }
-      />
+    <div className="max-w-3xl mx-auto space-y-6">
+      <div className="flex items-center gap-3">
+        <Link
+          href="/dashboard/jobs"
+          className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+          aria-label="Back to jobs"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </Link>
+        <h1 className="text-2xl font-bold text-foreground">Log Job</h1>
+      </div>
 
       <div className="rounded-2xl border border-border bg-card p-6">
         <AdminJobForm

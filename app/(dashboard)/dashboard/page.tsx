@@ -4,7 +4,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { formatINR } from '@/lib/utils'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { Truck, Users, Building2, Wallet, Activity, Wrench, CheckCircle, ClipboardList, TrendingUp } from 'lucide-react'
+import { Truck, Users, Building2, Wallet, Activity, Wrench, CheckCircle, ClipboardList, TrendingUp, Receipt } from 'lucide-react'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Dashboard' }
@@ -27,6 +27,7 @@ export default async function DashboardPage() {
     machinesWithSchedules,
     jobsToday,
     revenueThisMonth,
+    expensesThisMonth,
     recentJobs,
   ] = await Promise.all([
     prisma.machine.count({ where: { businessId, deletedAt: null } }),
@@ -41,6 +42,10 @@ export default async function DashboardPage() {
       where: { businessId, deletedAt: null, date: { gte: todayStart } },
     }),
     prisma.job.aggregate({
+      where: { businessId, deletedAt: null, date: { gte: monthStart } },
+      _sum: { amount: true },
+    }),
+    prisma.expense.aggregate({
       where: { businessId, deletedAt: null, date: { gte: monthStart } },
       _sum: { amount: true },
     }),
@@ -101,6 +106,7 @@ export default async function DashboardPage() {
     { id: 'stat-cash',        title: 'Cash Position',    value: formatINR(cashPosition),                              icon: Wallet,         sub: 'across accounts', color: 'text-chart-2' },
     { id: 'stat-jobs-today',  title: 'Jobs Today',       value: jobsToday.toString(),                                 icon: ClipboardList,  sub: 'logged today',    color: 'text-primary' },
     { id: 'stat-revenue',     title: 'Revenue (Month)',  value: formatINR(revenueThisMonth._sum.amount ?? 0),         icon: TrendingUp,     sub: 'billed this month', color: 'text-chart-1' },
+    { id: 'stat-expenses',    title: 'Expenses (Month)', value: formatINR(expensesThisMonth._sum.amount ?? 0),        icon: Receipt,        sub: 'spent this month', color: 'text-destructive' },
   ]
 
   type RecentJob = (typeof recentJobs)[number]
@@ -119,8 +125,8 @@ export default async function DashboardPage() {
         <p className="text-sm mt-0.5 text-muted-foreground">Welcome back, {user.name.split(' ')[0]} 👋</p>
       </div>
 
-      {/* Stat cards — 2×3 on mobile, 3×2 on desktop */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* Stat cards — 2x4 on mobile, 4x2 on desktop */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map(({ id, title, value, icon: Icon, sub, color }) => (
           <div key={id} id={id} className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3">
             <div className="flex items-start justify-between">

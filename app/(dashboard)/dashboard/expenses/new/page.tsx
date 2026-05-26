@@ -1,19 +1,26 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { OperatorExpenseForm } from '@/components/operator/operator-expense-form'
-import type { SerialCategory, SerialMachine, SerialAccount } from '@/components/operator/operator-expense-form'
+import { ArrowLeft } from 'lucide-react'
+import { AdminExpenseForm } from '@/components/expenses/admin-expense-form'
+import type { SerialCategory, SerialMachine, SerialStaff, SerialAccount } from '@/components/expenses/admin-expense-form'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Log Expense' }
 
-export default async function LogExpensePage() {
+export default async function NewExpensePage() {
   const user = await getCurrentUser()
   if (!user?.businessId) redirect('/login')
 
   const businessId = user.businessId!
+  const isAdmin = user.roleId === 'admin' || user.roleId === 'master_admin'
 
-  const [categories, machines, accounts] = await Promise.all([
+  if (!isAdmin) {
+    redirect('/dashboard/expenses')
+  }
+
+  const [categories, machines, staff, accounts] = await Promise.all([
     prisma.expenseCategory.findMany({
       where: {
         OR: [{ businessId }, { businessId: null }],
@@ -26,6 +33,10 @@ export default async function LogExpensePage() {
       where: { businessId, deletedAt: null, isActive: true },
       orderBy: { name: 'asc' },
     }),
+    prisma.user.findMany({
+      where: { businessId, deletedAt: null, isActive: true, roleId: { not: 'master_admin' } },
+      orderBy: { name: 'asc' },
+    }),
     prisma.account.findMany({
       where: { businessId, deletedAt: null, isActive: true },
       orderBy: { name: 'asc' },
@@ -34,6 +45,7 @@ export default async function LogExpensePage() {
 
   type CatRow = (typeof categories)[number]
   type MachineRow = (typeof machines)[number]
+  type StaffRow = (typeof staff)[number]
   type AccountRow = (typeof accounts)[number]
 
   const serialCategories: SerialCategory[] = categories.map((c: CatRow) => ({
@@ -47,6 +59,11 @@ export default async function LogExpensePage() {
     name: m.name,
   }))
 
+  const serialStaff: SerialStaff[] = staff.map((s: StaffRow) => ({
+    id: s.id,
+    name: s.name,
+  }))
+
   const serialAccounts: SerialAccount[] = accounts.map((a: AccountRow) => ({
     id: a.id,
     name: a.name,
@@ -54,18 +71,23 @@ export default async function LogExpensePage() {
   }))
 
   return (
-    <div className="max-w-lg mx-auto">
-      <div className="mb-6">
+    <div className="max-w-3xl mx-auto space-y-6">
+      <div className="flex items-center gap-3">
+        <Link
+          href="/dashboard/expenses"
+          className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+          aria-label="Back to expenses"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </Link>
         <h1 className="text-2xl font-bold text-foreground">Log Expense</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Track fuel, oil, spare parts, and other operating expenses.
-        </p>
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-5">
-        <OperatorExpenseForm
+        <AdminExpenseForm
           categories={serialCategories}
           machines={serialMachines}
+          staffList={serialStaff}
           accounts={serialAccounts}
         />
       </div>

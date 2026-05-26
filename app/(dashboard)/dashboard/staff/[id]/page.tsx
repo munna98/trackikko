@@ -8,7 +8,7 @@ import { DeactivateButton } from '@/components/staff/deactivate-button'
 import { StaffTabs } from '@/components/staff/staff-tabs'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { getInitials } from '@/lib/utils'
-import { Phone, Mail, ChevronLeft } from 'lucide-react'
+import { Phone, Mail, ArrowLeft } from 'lucide-react'
 import type { Metadata } from 'next'
 
 type PageProps = { params: Promise<{ id: string }> }
@@ -118,13 +118,13 @@ export default async function StaffDetailPage({ params }: PageProps) {
             {getInitials(staffMember.name)}
           </div>
           <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <Link
                 href="/dashboard/staff"
-                className="text-muted-foreground hover:text-foreground transition-colors"
+                className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
                 aria-label="Back to staff"
               >
-                <ChevronLeft className="h-6 w-6" />
+                <ArrowLeft className="w-5 h-5" />
               </Link>
               <h1 className="text-2xl font-bold text-foreground">{staffMember.name}</h1>
             </div>

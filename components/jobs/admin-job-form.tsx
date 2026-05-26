@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Loader2 } from 'lucide-react'
+import { Loader2, ChevronLeft } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -167,7 +167,7 @@ export function AdminJobForm({ machines, sites, rateCards, staff }: AdminJobForm
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
         {/* Staff */}
         <FormField
@@ -287,7 +287,7 @@ export function AdminJobForm({ machines, sites, rateCards, staff }: AdminJobForm
             </FormItem>
           )} />
         ) : trackingUnit !== null ? (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 md:col-span-2">
             <FormField control={form.control} name="startReading" render={({ field }) => (
               <FormItem>
                 <FormLabel>Start Reading <span className="text-destructive">*</span></FormLabel>
@@ -349,7 +349,7 @@ export function AdminJobForm({ machines, sites, rateCards, staff }: AdminJobForm
 
         {/* Live preview */}
         {quantity > 0 && watchedActualRate > 0 && (
-          <div className="rounded-xl bg-muted px-4 py-3 flex items-center justify-between">
+          <div className="rounded-xl bg-muted px-4 py-3 flex items-center justify-between md:col-span-2">
             <span className="text-sm text-muted-foreground">
               {quantity.toLocaleString('en-IN')} {trackingUnit === 'trips' ? 'trips' : 'hrs'} × {formatINR(watchedActualRate)}
             </span>
@@ -357,12 +357,29 @@ export function AdminJobForm({ machines, sites, rateCards, staff }: AdminJobForm
           </div>
         )}
 
-        {errors.root && <p className="text-sm text-destructive">{errors.root.message}</p>}
+        {errors.root && <p className="text-sm text-destructive md:col-span-2">{errors.root.message}</p>}
 
-        <Button id="admin-log-job-submit-btn" type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Log Job
-        </Button>
+        <div className="flex gap-3 pt-4 border-t border-border mt-2 md:col-span-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="px-4"
+            onClick={() => router.back()}
+            disabled={isSubmitting}
+          >
+            <ChevronLeft className="w-4 h-4 mr-2" />
+            Cancel
+          </Button>
+          <Button
+            id="admin-log-job-submit-btn"
+            type="submit"
+            className="flex-1 font-semibold"
+            disabled={isSubmitting}
+          >
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Log Job
+          </Button>
+        </div>
       </form>
     </Form>
   )

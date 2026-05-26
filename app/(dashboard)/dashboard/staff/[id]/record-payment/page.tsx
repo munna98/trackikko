@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { StaffPaymentForm } from '@/components/staff/staff-payment-form'
-import { ChevronLeft } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { getInitials } from '@/lib/utils'
 import type { Metadata } from 'next'
 
@@ -56,13 +56,13 @@ export default async function RecordPaymentPage({ params }: PageProps) {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-start gap-4">
+      <div className="flex items-center gap-3">
         <Link
           href={`/dashboard/staff/${id}`}
-          className="mt-1 text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
-          aria-label="Back to staff member"
+          className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+          aria-label="Back to staff detail"
         >
-          <ChevronLeft className="h-6 w-6" />
+          <ArrowLeft className="w-5 h-5" />
         </Link>
 
         <div className="flex items-center gap-3 min-w-0">

@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { Badge } from '@/components/ui/badge'
 import { PartySheet } from '@/components/parties/party-sheet'
 import { PartyTabs } from '@/components/parties/party-tabs'
-import { ChevronLeft, Phone, MapPin } from 'lucide-react'
+import { ArrowLeft, Phone, MapPin } from 'lucide-react'
 import { formatINR } from '@/lib/utils'
 import type { Metadata } from 'next'
 
@@ -25,7 +25,7 @@ export default async function PartyDetailPage({ params }: PageProps) {
   const businessId = user.businessId!
   const isAdmin = user.roleId === 'admin' || user.roleId === 'master_admin'
 
-  const [party, machines, settlements, accounts] = await Promise.all([
+  const [party, machines, settlements, advances, accounts] = await Promise.all([
     prisma.party.findUnique({
       where: { id, deletedAt: null },
       include: {
@@ -50,6 +50,11 @@ export default async function PartyDetailPage({ params }: PageProps) {
       include: { account: { select: { name: true } } },
       orderBy: { date: 'desc' },
     }),
+    prisma.partyAdvance.findMany({
+      where: { partyId: id, businessId, deletedAt: null },
+      include: { account: { select: { name: true } } },
+      orderBy: { date: 'desc' },
+    }),
     prisma.account.findMany({
       where: { businessId, deletedAt: null, isActive: true },
       select: { id: true, name: true, type: true },
@@ -66,6 +71,7 @@ export default async function PartyDetailPage({ params }: PageProps) {
   type RcRow = (typeof party.rateCards)[number]
   type MachineRow = (typeof machines)[number]
   type SettlementRow = (typeof settlements)[number]
+  type AdvanceRow = (typeof advances)[number]
   type AccountRow = (typeof accounts)[number]
 
   const serialisedSites = party.sites.map((s: SiteRow) => ({
@@ -103,6 +109,14 @@ export default async function PartyDetailPage({ params }: PageProps) {
     notes: s.notes,
   }))
 
+  const serialisedAdvances = advances.map((a: AdvanceRow) => ({
+    id: a.id,
+    date: a.date.toISOString().split('T')[0],
+    amount: a.amount.toNumber(),
+    accountName: a.account.name,
+    notes: a.notes,
+  }))
+
   const serialisedAccounts = accounts.map((a: AccountRow) => ({
     id: a.id,
     name: a.name,
@@ -114,13 +128,13 @@ export default async function PartyDetailPage({ params }: PageProps) {
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="space-y-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Link
               href="/dashboard/parties"
               className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
               aria-label="Back to parties"
             >
-              <ChevronLeft className="h-6 w-6" />
+              <ArrowLeft className="w-5 h-5" />
             </Link>
             <h1 className="text-2xl font-bold text-foreground">{party.name}</h1>
             {!party.isActive && (
@@ -188,6 +202,7 @@ export default async function PartyDetailPage({ params }: PageProps) {
         machines={serialisedMachines}
         isAdmin={isAdmin}
         settlements={serialisedSettlements}
+        advances={serialisedAdvances}
         accounts={serialisedAccounts}
         runningBalance={runningBalance}
       />
