@@ -20,8 +20,8 @@ export function OperatorNav() {
         const isActive = pathname === href || pathname.startsWith(href + '/')
         return (
           <Link key={href} href={href}
-            className={`flex-1 flex flex-col items-center justify-center gap-1 text-xs font-medium transition-colors py-2
-              ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>
+            className={`flex-1 flex flex-col items-center justify-center gap-1 text-xs font-medium transition-colors py-2 mx-1 my-1 rounded-xl
+              ${isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-sidebar-accent/50'}`}>
             <Icon className="w-6 h-6" />
             <span>{label}</span>
           </Link>

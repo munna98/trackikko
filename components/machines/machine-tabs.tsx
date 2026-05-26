@@ -311,13 +311,17 @@ function OilChangesTab({
 }) {
   const [showScheduleForm, setShowScheduleForm] = React.useState(false)
   const schedule = machine.oilChangeSchedule
+  const unit = UNIT_LABEL[machine.machineType.trackingUnit] ?? ''
+  const oilStatus = getOilStatus(machine)
+  const nextDueReading = schedule ? schedule.lastChangedAtReading + schedule.intervalUnits : null
+  const unitsRemaining = schedule ? nextDueReading! - machine.currentMeterReading : null
 
   const columns: ColumnDef<OilLog>[] = [
     { accessorKey: 'date', header: 'Date', cell: ({ getValue }) => formatDate(String(getValue())) },
     {
       accessorKey: 'readingAtChange',
       header: 'Reading',
-      cell: ({ getValue }) => `${Number(getValue()).toLocaleString('en-IN')} ${UNIT_LABEL[machine.machineType.trackingUnit] ?? ''}`,
+      cell: ({ getValue }) => `${Number(getValue()).toLocaleString('en-IN')} ${unit}`,
     },
     { accessorKey: 'oilType', header: 'Oil Type', cell: ({ getValue }) => String(getValue() ?? '—') },
     {
@@ -329,71 +333,9 @@ function OilChangesTab({
   ]
 
   return (
-    <div className="space-y-6" id="oil-schedule-section">
-      {/* Section A: Schedule */}
-      <div className="rounded-2xl border border-border bg-card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-sm text-card-foreground">Oil Change Schedule</h3>
-          {isAdmin && schedule && !showScheduleForm && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowScheduleForm(true)}
-              id="edit-oil-schedule-btn"
-            >
-              <Pencil className="mr-2 h-3.5 w-3.5" />
-              Edit Schedule
-            </Button>
-          )}
-        </div>
-
-        {!schedule || showScheduleForm ? (
-          <OilScheduleForm
-            machineId={machine.id}
-            trackingUnit={machine.machineType.trackingUnit}
-            defaultValues={
-              schedule
-                ? {
-                    intervalUnits: schedule.intervalUnits,
-                    alertBeforeUnits: schedule.alertBeforeUnits,
-                    lastChangedAtReading: schedule.lastChangedAtReading,
-                    lastChangedDate: new Date(schedule.lastChangedDate),
-                    notes: schedule.notes,
-                  }
-                : undefined
-            }
-            onSuccess={() => setShowScheduleForm(false)}
-          />
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-            <div>
-              <p className="text-muted-foreground text-xs">Interval</p>
-              <p className="font-medium">{schedule.intervalUnits.toLocaleString('en-IN')} {UNIT_LABEL[machine.machineType.trackingUnit]}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs">Alert before</p>
-              <p className="font-medium">{schedule.alertBeforeUnits} {UNIT_LABEL[machine.machineType.trackingUnit]}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs">Last changed at</p>
-              <p className="font-medium">{schedule.lastChangedAtReading.toLocaleString('en-IN')} {UNIT_LABEL[machine.machineType.trackingUnit]}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs">Last changed date</p>
-              <p className="font-medium">{formatDate(schedule.lastChangedDate)}</p>
-            </div>
-            {schedule.notes && (
-              <div className="col-span-2">
-                <p className="text-muted-foreground text-xs">Notes</p>
-                <p className="font-medium">{schedule.notes}</p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Section B: History */}
-      <div className="space-y-3">
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6" id="oil-schedule-section">
+      {/* Left: Oil Change History Table */}
+      <div className="space-y-3 min-w-0 order-2 lg:order-1">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-sm">Oil Change History</h3>
           {isAdmin && (
@@ -415,6 +357,98 @@ function OilChangesTab({
             />
           }
         />
+      </div>
+
+      {/* Right: Schedule Sidebar */}
+      <div className="order-1 lg:order-2">
+        <div className="rounded-2xl border border-border bg-card p-5 lg:sticky lg:top-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-sm text-card-foreground">Oil Change Schedule</h3>
+            {isAdmin && schedule && !showScheduleForm && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowScheduleForm(true)}
+                id="edit-oil-schedule-btn"
+              >
+                <Pencil className="mr-2 h-3.5 w-3.5" />
+                Edit
+              </Button>
+            )}
+          </div>
+
+          {!schedule || showScheduleForm ? (
+            <OilScheduleForm
+              machineId={machine.id}
+              trackingUnit={machine.machineType.trackingUnit}
+              defaultValues={
+                schedule
+                  ? {
+                      intervalUnits: schedule.intervalUnits,
+                      alertBeforeUnits: schedule.alertBeforeUnits,
+                      lastChangedAtReading: schedule.lastChangedAtReading,
+                      lastChangedDate: new Date(schedule.lastChangedDate),
+                      notes: schedule.notes,
+                    }
+                  : undefined
+              }
+              onSuccess={() => setShowScheduleForm(false)}
+            />
+          ) : (
+            <div className="space-y-4">
+              {/* Status Badge */}
+              {oilStatus && (
+                <div className="flex items-center gap-2">
+                  <StatusBadge status={oilStatus} />
+                </div>
+              )}
+
+              {/* Next Oil Change - Prominent Display */}
+              <div className="rounded-xl bg-muted p-4 space-y-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Next Oil Change At</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {nextDueReading?.toLocaleString('en-IN')} <span className="text-sm font-normal text-muted-foreground">{unit}</span>
+                </p>
+                <p className={`text-sm font-medium ${(unitsRemaining ?? 0) <= 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                  {(unitsRemaining ?? 0) <= 0
+                    ? `${Math.abs(unitsRemaining ?? 0).toLocaleString('en-IN')} ${unit} overdue`
+                    : `${unitsRemaining?.toLocaleString('en-IN')} ${unit} remaining`}
+                </p>
+              </div>
+
+              {/* Schedule Details */}
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between items-center py-1.5 border-b border-border/50">
+                  <span className="text-muted-foreground">Interval</span>
+                  <span className="font-medium">{schedule.intervalUnits.toLocaleString('en-IN')} {unit}</span>
+                </div>
+                <div className="flex justify-between items-center py-1.5 border-b border-border/50">
+                  <span className="text-muted-foreground">Alert before</span>
+                  <span className="font-medium">{schedule.alertBeforeUnits} {unit}</span>
+                </div>
+                <div className="flex justify-between items-center py-1.5 border-b border-border/50">
+                  <span className="text-muted-foreground">Last changed at</span>
+                  <span className="font-medium">{schedule.lastChangedAtReading.toLocaleString('en-IN')} {unit}</span>
+                </div>
+                <div className="flex justify-between items-center py-1.5 border-b border-border/50">
+                  <span className="text-muted-foreground">Last changed date</span>
+                  <span className="font-medium">{formatDate(schedule.lastChangedDate)}</span>
+                </div>
+                <div className="flex justify-between items-center py-1.5">
+                  <span className="text-muted-foreground">Current reading</span>
+                  <span className="font-medium">{machine.currentMeterReading.toLocaleString('en-IN')} {unit}</span>
+                </div>
+              </div>
+
+              {schedule.notes && (
+                <div className="pt-1">
+                  <p className="text-xs text-muted-foreground">Notes</p>
+                  <p className="text-sm font-medium mt-0.5">{schedule.notes}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

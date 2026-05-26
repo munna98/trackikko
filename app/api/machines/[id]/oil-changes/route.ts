@@ -40,19 +40,41 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const { date, readingAtChange, oilType, cost, accountId, notes } = parsed.data
 
-    // Just insert the log row — Supabase triggers handle schedule update and account balance
-    const log = await prisma.oilChangeLog.create({
-      data: {
-        businessId,
-        machineId: id,
-        date: new Date(date),
-        readingAtChange,
-        oilType: oilType || null,
-        cost: cost ?? null,
-        accountId: accountId || null,
-        notes: notes || null,
-        recordedBy: user.id,
-      },
+    // Insert log + update schedule & machine reading in a single transaction
+    const log = await prisma.$transaction(async (tx) => {
+      const log = await tx.oilChangeLog.create({
+        data: {
+          businessId,
+          machineId: id,
+          date: new Date(date),
+          readingAtChange,
+          oilType: oilType || null,
+          cost: cost ?? null,
+          accountId: accountId || null,
+          notes: notes || null,
+          recordedBy: user.id,
+        },
+      })
+
+      // Update oil change schedule if one exists
+      await tx.oilChangeSchedule.updateMany({
+        where: { machineId: id },
+        data: {
+          lastChangedAtReading: readingAtChange,
+          lastChangedDate: new Date(date),
+          updatedAt: new Date(),
+        },
+      })
+
+      // Update machine meter reading if the new reading is higher
+      if (readingAtChange > machine.currentMeterReading.toNumber()) {
+        await tx.machine.update({
+          where: { id },
+          data: { currentMeterReading: readingAtChange },
+        })
+      }
+
+      return log
     })
 
     return NextResponse.json({ id: log.id }, { status: 201 })

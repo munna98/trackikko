@@ -88,7 +88,7 @@ export function PartyForm({ defaultValues, onSuccess }: PartyFormProps) {
         <FormField control={form.control} name="name" render={({ field }) => (
           <FormItem>
             <FormLabel>Party Name <span className="text-destructive">*</span></FormLabel>
-            <FormControl><Input placeholder="e.g. Sharma Constructions" {...field} /></FormControl>
+            <FormControl><Input placeholder="e.g. ABC Constructions" {...field} /></FormControl>
             <FormMessage />
           </FormItem>
         )} />
@@ -104,7 +104,7 @@ export function PartyForm({ defaultValues, onSuccess }: PartyFormProps) {
         <FormField control={form.control} name="gstNo" render={({ field }) => (
           <FormItem>
             <FormLabel>GST Number <span className="text-muted-foreground text-xs">(optional)</span></FormLabel>
-            <FormControl><Input placeholder="27AABCU9603R1ZX" {...field} /></FormControl>
+            <FormControl><Input placeholder="32AABCU9603R1ZX" {...field} /></FormControl>
             <FormMessage />
           </FormItem>
         )} />
@@ -139,7 +139,7 @@ export function PartyForm({ defaultValues, onSuccess }: PartyFormProps) {
                   >
                     <p className="font-semibold">{type === 'debit' ? 'Debit (Dr)' : 'Credit (Cr)'}</p>
                     <p className="text-xs mt-0.5 opacity-70">
-                      {type === 'debit' ? 'They owe us' : 'We owe them'}
+                      {type === 'debit' ? 'കിട്ടാൻ' : 'കൊടുക്കാൻ'}
                     </p>
                   </button>
                 ))}

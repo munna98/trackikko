@@ -123,25 +123,37 @@ export async function POST(request: NextRequest) {
     const rateCardRate = rateCard?.rate ? Number(rateCard.rate) : null
     const amount = quantity * actualRate
 
-    const job = await prisma.job.create({
-      data: {
-        businessId,
-        machineId,
-        staffId,
-        siteId,
-        date: new Date(date),
-        startReading: startReading != null ? startReading : null,
-        closingReading: closingReading != null ? closingReading : null,
-        tripCount: tripCount != null ? tripCount : null,
-        quantity,
-        mode: mode ?? null,
-        rateType,
-        rateCardRate: rateCardRate != null ? rateCardRate : null,
-        actualRate,
-        amount,
-        batha,
-        recordedBy: user.id,
-      },
+    const job = await prisma.$transaction(async (tx) => {
+      const job = await tx.job.create({
+        data: {
+          businessId,
+          machineId,
+          staffId,
+          siteId,
+          date: new Date(date),
+          startReading: startReading != null ? startReading : null,
+          closingReading: closingReading != null ? closingReading : null,
+          tripCount: tripCount != null ? tripCount : null,
+          quantity,
+          mode: mode ?? null,
+          rateType,
+          rateCardRate: rateCardRate != null ? rateCardRate : null,
+          actualRate,
+          amount,
+          batha,
+          recordedBy: user.id,
+        },
+      })
+
+      // Update machine meter reading if closing reading is higher
+      if (closingReading != null && closingReading > machine.currentMeterReading.toNumber()) {
+        await tx.machine.update({
+          where: { id: machineId },
+          data: { currentMeterReading: closingReading },
+        })
+      }
+
+      return job
     })
 
     return NextResponse.json({ id: job.id }, { status: 201 })
