@@ -36,7 +36,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const body: unknown = await request.json()
     const parsed = createRateCardSchema.safeParse(body)
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+      const firstError = parsed.error.issues[0]?.message ?? 'Invalid input'
+      return NextResponse.json({ error: firstError }, { status: 400 })
     }
 
     const { machineId, siteId, mode, rateType, rate } = parsed.data

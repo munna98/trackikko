@@ -6,7 +6,7 @@ import { z } from 'zod'
 
 const createSiteSchema = z.object({
   name: z.string().min(1, 'Site name is required'),
-  location: z.string().optional(),
+  location: z.string().nullish(),
   batha: z.coerce.number().min(0).default(0),
 })
 
@@ -34,7 +34,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const body: unknown = await request.json()
     const parsed = createSiteSchema.safeParse(body)
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+      const firstError = parsed.error.issues[0]?.message ?? 'Invalid input'
+      return NextResponse.json({ error: firstError }, { status: 400 })
     }
 
     const site = await prisma.site.create({
