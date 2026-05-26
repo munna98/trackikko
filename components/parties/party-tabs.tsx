@@ -66,11 +66,26 @@ type PartyTabsProps = {
   rateCards: RateCard[]
   machines: Machine[]
   isAdmin: boolean
-  // Settlements & Advances
   settlements: PartySettlementRow[]
   advances: PartyAdvanceRow[]
   accounts: AccountOption[]
   runningBalance: number
+}
+
+function ModePill({ mode }: { mode: string | null }) {
+  if (!mode) return <span className="text-muted-foreground text-sm">—</span>
+  if (mode === 'bucket') {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-chart-5/10 text-chart-5">
+        Bucket
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+      Breaking
+    </span>
+  )
 }
 
 export function PartyTabs({
@@ -89,6 +104,15 @@ export function PartyTabs({
   const [toggleTarget, setToggleTarget] = React.useState<boolean>(false)
   const [confirmSiteOpen, setConfirmSiteOpen] = React.useState(false)
   const [loading, setLoading] = React.useState(false)
+
+  const rateCardsByMachine = React.useMemo(() =>
+    rateCards.reduce((acc, rc) => {
+      if (!acc[rc.machineName]) acc[rc.machineName] = []
+      acc[rc.machineName].push(rc)
+      return acc
+    }, {} as Record<string, RateCard[]>),
+    [rateCards]
+  )
 
   async function handleToggleSite() {
     if (!togglingId) return
@@ -225,6 +249,7 @@ export function PartyTabs({
               <RateCardDialog partyId={partyId} machines={machines} sites={sites} />
             </div>
           )}
+
           {rateCards.length === 0 ? (
             <EmptyState
               icon={Tag}
@@ -233,53 +258,69 @@ export function PartyTabs({
               action={isAdmin ? <RateCardDialog partyId={partyId} machines={machines} sites={sites} /> : undefined}
             />
           ) : (
-            <div className="rounded-xl border border-border overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Machine</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Site</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Mode</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Rate</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
-                    {isAdmin && <th className="px-4 py-3" />}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {rateCards.map((rc) => (
-                    <tr key={rc.id} className="bg-card hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-3 font-medium text-foreground">{rc.machineName}</td>
-                      <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">
-                        {rc.siteName ?? <span className="text-xs italic">All sites</span>}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell capitalize">
-                        {rc.mode ?? '—'}
-                      </td>
-                      <td className="px-4 py-3 font-semibold text-foreground">
-                        {formatINR(rc.rate)}
-                        <span className="text-xs font-normal text-muted-foreground ml-1">
-                          / {rc.rateType === 'per_hour' ? 'hr' : 'trip'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge variant={rc.isActive ? 'secondary' : 'outline'} className={!rc.isActive ? 'text-muted-foreground' : ''}>
-                          {rc.isActive ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </td>
-                      {isAdmin && (
-                        <td className="px-4 py-3 text-right">
-                          <EditRateDialog
-                            partyId={partyId}
-                            rateCardId={rc.id}
-                            currentRate={rc.rate}
-                            rateType={rc.rateType}
-                          />
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-3">
+              {Object.entries(rateCardsByMachine).map(([machineName, cards]) => {
+                const rateUnit = cards[0].rateType === 'per_trip' ? 'trip' : 'hr'
+                return (
+                  <div key={machineName} className="rounded-xl border border-border overflow-hidden">
+                    {/* Machine header */}
+                    <div className="flex items-center gap-3 px-4 py-3 bg-muted/50 border-b border-border">
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm text-foreground">{machineName}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {cards[0].rateType === 'per_trip' ? 'per trip' : 'per hour'}
+                          {' · '}{cards.length} {cards.length === 1 ? 'rate' : 'rates'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Rate rows */}
+                    <div className="divide-y divide-border">
+                      {cards.map((rc) => (
+                        <div
+                          key={rc.id}
+                          className="grid grid-cols-[1fr_1fr_1fr_auto] items-center gap-4 px-4 py-3 bg-card hover:bg-muted/20 transition-colors"
+                        >
+                          {/* Site */}
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Site</p>
+                            {rc.siteName ? (
+                              <p className="text-sm text-foreground">{rc.siteName}</p>
+                            ) : (
+                              <p className="text-sm text-muted-foreground italic">All sites</p>
+                            )}
+                          </div>
+
+                          {/* Mode */}
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Mode</p>
+                            <ModePill mode={rc.mode} />
+                          </div>
+
+                          {/* Rate */}
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Rate</p>
+                            <p className="text-sm font-medium text-foreground">
+                              {formatINR(rc.rate)}
+                              <span className="text-xs font-normal text-muted-foreground ml-1">/ {rateUnit}</span>
+                            </p>
+                          </div>
+
+                          {/* Edit */}
+                          {isAdmin && (
+                            <EditRateDialog
+                              partyId={partyId}
+                              rateCardId={rc.id}
+                              currentRate={rc.rate}
+                              rateType={rc.rateType}
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
@@ -319,43 +360,25 @@ export function PartyTabs({
                 <thead className="bg-muted/50">
                   <tr>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">
-                      Amount
-                    </th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">
-                      Account
-                    </th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">
-                      Notes
-                    </th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Amount</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Account</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Notes</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {advances.map((a) => (
                     <tr key={a.id} className="bg-card hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {formatDate(a.date)}
-                      </td>
-                      <td className="px-4 py-3 font-semibold text-foreground">
-                        {formatINR(a.amount)}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">
-                        {a.accountName}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground hidden md:table-cell max-w-xs truncate">
-                        {a.notes ?? '—'}
-                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">{formatDate(a.date)}</td>
+                      <td className="px-4 py-3 font-semibold text-foreground">{formatINR(a.amount)}</td>
+                      <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">{a.accountName}</td>
+                      <td className="px-4 py-3 text-muted-foreground hidden md:table-cell max-w-xs truncate">{a.notes ?? '—'}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot className="border-t border-border bg-muted/30">
                   <tr>
-                    <td className="px-4 py-2.5 text-xs font-medium text-muted-foreground">
-                      Total ({advances.length})
-                    </td>
-                    <td className="px-4 py-2.5 font-bold text-foreground">
-                      {formatINR(advances.reduce((s, r) => s + r.amount, 0))}
-                    </td>
+                    <td className="px-4 py-2.5 text-xs font-medium text-muted-foreground">Total ({advances.length})</td>
+                    <td className="px-4 py-2.5 font-bold text-foreground">{formatINR(advances.reduce((s, r) => s + r.amount, 0))}</td>
                     <td colSpan={2} className="hidden md:table-cell" />
                   </tr>
                 </tfoot>
@@ -408,59 +431,31 @@ export function PartyTabs({
                 <thead className="bg-muted/50">
                   <tr>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">
-                      Balance Before
-                    </th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">
-                      Received
-                    </th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">
-                      Writeoff
-                    </th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">
-                      Account
-                    </th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">
-                      Notes
-                    </th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Balance Before</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Received</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Writeoff</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Account</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Notes</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {settlements.map((s) => (
                     <tr key={s.id} className="bg-card hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {formatDate(s.date)}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
-                        {formatINR(s.balanceBefore)}
-                      </td>
-                      <td className="px-4 py-3 font-semibold text-green-600 dark:text-green-400">
-                        {formatINR(s.amountReceived)}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">
-                        {s.writeoffAmount > 0 ? formatINR(s.writeoffAmount) : '—'}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">
-                        {s.accountName}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell max-w-xs truncate">
-                        {s.notes ?? '—'}
-                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">{formatDate(s.date)}</td>
+                      <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{formatINR(s.balanceBefore)}</td>
+                      <td className="px-4 py-3 font-semibold text-green-600 dark:text-green-400">{formatINR(s.amountReceived)}</td>
+                      <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{s.writeoffAmount > 0 ? formatINR(s.writeoffAmount) : '—'}</td>
+                      <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">{s.accountName}</td>
+                      <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell max-w-xs truncate">{s.notes ?? '—'}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot className="border-t border-border bg-muted/30">
                   <tr>
-                    <td className="px-4 py-2.5 text-xs font-medium text-muted-foreground">
-                      Total ({settlements.length})
-                    </td>
+                    <td className="px-4 py-2.5 text-xs font-medium text-muted-foreground">Total ({settlements.length})</td>
                     <td className="hidden sm:table-cell" />
-                    <td className="px-4 py-2.5 font-bold text-green-600 dark:text-green-400">
-                      {formatINR(settlements.reduce((s, r) => s + r.amountReceived, 0))}
-                    </td>
-                    <td className="px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">
-                      {formatINR(settlements.reduce((s, r) => s + r.writeoffAmount, 0))}
-                    </td>
+                    <td className="px-4 py-2.5 font-bold text-green-600 dark:text-green-400">{formatINR(settlements.reduce((s, r) => s + r.amountReceived, 0))}</td>
+                    <td className="px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">{formatINR(settlements.reduce((s, r) => s + r.writeoffAmount, 0))}</td>
                     <td colSpan={2} className="hidden lg:table-cell" />
                   </tr>
                 </tfoot>
@@ -470,7 +465,6 @@ export function PartyTabs({
         </div>
       </TabsContent>
 
-      {/* Confirm site deactivation */}
       <ConfirmDialog
         open={confirmSiteOpen}
         onOpenChange={setConfirmSiteOpen}
