@@ -68,6 +68,7 @@ export default async function MachinesPage() {
   const serialisedMachines = machines.map((m: MachineWithRelations) => ({
     id: m.id,
     name: m.name,
+    machineTypeId: m.machineTypeId,
     typeName: m.machineType.name,
     trackingUnit: m.machineType.trackingUnit as TrackingUnit,
     identifier: m.identifier ?? undefined,

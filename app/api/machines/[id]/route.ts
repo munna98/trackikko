@@ -9,6 +9,7 @@ const editMachineSchema = z.object({
   identifier: z.string().optional().nullable(),
   capacity: z.string().optional().nullable(),
   isActive: z.boolean().optional(),
+  currentMeterReading: z.number().min(0).optional(),
 })
 
 type RouteParams = { params: Promise<{ id: string }> }
@@ -37,7 +38,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // Cannot edit machineTypeId after creation
-    const { name, identifier, capacity, isActive } = parsed.data
+    const { name, identifier, capacity, isActive, currentMeterReading } = parsed.data
 
     // Check identifier uniqueness if changing
     if (identifier && identifier !== machine.identifier) {
@@ -56,6 +57,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         ...(identifier !== undefined && { identifier }),
         ...(capacity !== undefined && { capacity }),
         ...(isActive !== undefined && { isActive }),
+        ...(currentMeterReading !== undefined && { currentMeterReading }),
         updatedAt: new Date(),
       },
     })
