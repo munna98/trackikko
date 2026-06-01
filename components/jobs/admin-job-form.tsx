@@ -51,6 +51,7 @@ const adminJobSchema = z
     tripCount: z.coerce.number().int().min(0).optional().nullable(),
     actualRate: z.coerce.number().min(0, 'Rate is required'),
     batha: z.coerce.number().min(0).default(0),
+    bathaPaidBy: z.enum(['party', 'company']).default('party'),
   })
   .superRefine((data, ctx) => {
     if (data.startReading != null && data.closingReading != null) {
@@ -94,6 +95,7 @@ export function AdminJobForm({ machines, sites, rateCards, staff }: AdminJobForm
       tripCount: null,
       actualRate: 0,
       batha: 0,
+      bathaPaidBy: 'party',
     },
   })
 
@@ -125,6 +127,14 @@ export function AdminJobForm({ machines, sites, rateCards, staff }: AdminJobForm
   React.useEffect(() => {
     if (!hasModes) form.setValue('mode', null)
   }, [watchedMachineId, hasModes, form])
+
+  React.useEffect(() => {
+    if (selectedMachine && selectedMachine.trackingUnit !== 'trips') {
+      form.setValue('startReading', selectedMachine.currentMeterReading)
+    } else {
+      form.setValue('startReading', null)
+    }
+  }, [watchedMachineId, selectedMachine, form])
 
   const sitesByParty = React.useMemo(() => {
     const grouped = new Map<string, { partyName: string; sites: SerialSite[] }>()
@@ -342,6 +352,33 @@ export function AdminJobForm({ machines, sites, rateCards, staff }: AdminJobForm
                 value={field.value ?? 0}
                 onChange={(e) => field.onChange(Number(e.target.value))}
               />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+
+        <FormField control={form.control} name="bathaPaidBy" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Batha Paid By <span className="text-destructive">*</span></FormLabel>
+            <FormControl>
+              <div className="grid grid-cols-2 gap-3">
+                <button type="button" onClick={() => field.onChange('party')}
+                  className={`min-h-[48px] rounded-xl border-2 font-semibold text-sm transition-all
+                    ${field.value === 'party'
+                      ? 'border-chart-5 bg-chart-5/10 text-chart-5'
+                      : 'border-border bg-card text-muted-foreground hover:border-chart-5/40'
+                    }`}>
+                  Party
+                </button>
+                <button type="button" onClick={() => field.onChange('company')}
+                  className={`min-h-[48px] rounded-xl border-2 font-semibold text-sm transition-all
+                    ${field.value === 'company'
+                      ? 'border-destructive bg-destructive/10 text-destructive'
+                      : 'border-border bg-card text-muted-foreground hover:border-destructive/40'
+                    }`}>
+                  Company
+                </button>
+              </div>
             </FormControl>
             <FormMessage />
           </FormItem>

@@ -53,6 +53,7 @@ export default async function JobDetailPage({
   const defaultEditValues = {
     actualRate: job.actualRate.toNumber(),
     batha: job.batha.toNumber(),
+    bathaPaidBy: job.bathaPaidBy,
     date: dateStr,
   }
 
@@ -78,13 +79,27 @@ export default async function JobDetailPage({
 
         {isAdmin && (
           <div className="flex-shrink-0">
-            <JobActions jobId={job.id} defaultValues={defaultEditValues} />
+            <JobActions jobId={job.id} isReviewed={job.isReviewed} defaultValues={defaultEditValues} />
           </div>
         )}
       </div>
 
       {/* Details card */}
       <div className="rounded-2xl border border-border bg-card p-5">
+        <InfoRow
+          label="Status"
+          value={
+            job.isReviewed ? (
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-250 font-semibold">
+                Reviewed
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-250 font-semibold">
+                Pending Review
+              </Badge>
+            )
+          }
+        />
         <InfoRow label="Party" value={job.site.party.name} />
         <InfoRow label="Site" value={job.site.name} />
         <InfoRow label="Operator" value={job.staff.name} />
@@ -124,7 +139,18 @@ export default async function JobDetailPage({
         />
         <InfoRow
           label="Batha"
-          value={job.batha.toNumber() > 0 ? <span className="text-chart-5 font-medium">{formatINR(job.batha.toNumber())}</span> : '—'}
+          value={
+            job.batha.toNumber() > 0 ? (
+              <span className={job.bathaPaidBy === 'company' ? 'text-destructive font-medium' : 'text-chart-5 font-medium'}>
+                {formatINR(job.batha.toNumber())}{' '}
+                <span className="text-xs text-muted-foreground font-normal">
+                  ({job.bathaPaidBy === 'company' ? 'Company Paid' : 'Party Paid'})
+                </span>
+              </span>
+            ) : (
+              '—'
+            )
+          }
         />
         <InfoRow label="Recorded By" value={job.recorder?.name ?? '—'} />
         <InfoRow label="Recorded At" value={job.createdAt.toLocaleString('en-IN')} />

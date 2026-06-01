@@ -34,6 +34,7 @@ export type SerialMachine = {
   name: string
   trackingUnit: 'hours' | 'trips' | 'km'
   hasModes: boolean
+  currentMeterReading: number
 }
 
 export type SerialSite = {
@@ -91,6 +92,7 @@ export const operatorJobSchema = z
     tripCount: z.coerce.number().int().min(0).optional().nullable(),
     actualRate: z.coerce.number().min(0, 'Rate is required'),
     batha: z.coerce.number().min(0).default(0),
+    bathaPaidBy: z.enum(['party', 'company']).default('party'),
   })
   .superRefine((data, ctx) => {
     if (data.machineId && data.startReading != null && data.closingReading != null) {
@@ -112,7 +114,7 @@ type Step = 1 | 2 | 3
 
 const STEP_META: Record<Step, { label: string; progress: number }> = {
   1: { label: 'Job Details',  progress: 33  },
-  2: { label: 'Work & Rate', progress: 66  },
+  2: { label: 'Work Details', progress: 66  },
   3: { label: 'Done!',        progress: 100 },
 }
 
@@ -126,6 +128,7 @@ type SuccessInfo = {
   unit: string
   amount: number
   batha: number
+  bathaPaidBy: 'party' | 'company'
 }
 
 function SuccessCard({ info, onReset }: { info: SuccessInfo; onReset: () => void }) {
@@ -159,8 +162,10 @@ function SuccessCard({ info, onReset }: { info: SuccessInfo; onReset: () => void
         </div>
         {info.batha > 0 && (
           <div className="flex items-center justify-between border-t border-border pt-2 mt-1">
-            <span className="text-sm text-muted-foreground">Batha</span>
-            <span className="font-medium text-chart-5">+{formatINR(info.batha)}</span>
+            <span className="text-sm text-muted-foreground">Batha ({info.bathaPaidBy === 'company' ? 'Company Paid' : 'Party Paid'})</span>
+            <span className={info.bathaPaidBy === 'company' ? 'font-semibold text-destructive' : 'font-medium text-chart-5'}>
+              +{formatINR(info.batha)}
+            </span>
           </div>
         )}
       </div>
@@ -205,6 +210,7 @@ export function OperatorJobForm({ machines, sites, rateCards }: OperatorJobFormP
       tripCount: null,
       actualRate: 0,
       batha: 0,
+      bathaPaidBy: 'party',
     },
   })
 
@@ -239,6 +245,14 @@ export function OperatorJobForm({ machines, sites, rateCards }: OperatorJobFormP
   React.useEffect(() => {
     if (!hasModes) form.setValue('mode', null)
   }, [watchedMachineId, hasModes, form])
+
+  React.useEffect(() => {
+    if (selectedMachine && selectedMachine.trackingUnit !== 'trips') {
+      form.setValue('startReading', selectedMachine.currentMeterReading)
+    } else {
+      form.setValue('startReading', null)
+    }
+  }, [watchedMachineId, selectedMachine, form])
 
   // Group sites by party
   const sitesByParty = React.useMemo(() => {
@@ -332,6 +346,7 @@ export function OperatorJobForm({ machines, sites, rateCards }: OperatorJobFormP
       unit: selectedMachine.trackingUnit === 'trips' ? 'trips' : 'hrs',
       amount: qty * values.actualRate,
       batha: values.batha,
+      bathaPaidBy: values.bathaPaidBy,
     })
     setStep(3)
   }
@@ -349,6 +364,7 @@ export function OperatorJobForm({ machines, sites, rateCards }: OperatorJobFormP
       tripCount: null,
       actualRate: 0,
       batha: 0,
+      bathaPaidBy: 'party',
     })
   }
 
@@ -500,7 +516,7 @@ export function OperatorJobForm({ machines, sites, rateCards }: OperatorJobFormP
             )}
 
             {/* ══════════════════════════════════════════════════════════
-                STEP 2 — Work & Rate
+                STEP 2 — Work Details
             ══════════════════════════════════════════════════════════ */}
             {step === 2 && (
               <>
@@ -588,31 +604,6 @@ export function OperatorJobForm({ machines, sites, rateCards }: OperatorJobFormP
                   </div>
                 ) : null}
 
-                {/* Rate */}
-                <FormField
-                  control={form.control}
-                  name="actualRate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Rate (₹) <span className="text-destructive">*</span></FormLabel>
-                      <FormControl>
-                        <Input
-                          inputMode="decimal"
-                          type="number"
-                          min={0}
-                          step="any"
-                          placeholder="Rate"
-                          className="min-h-[48px]"
-                          {...field}
-                          value={field.value ?? ''}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
                 {/* Batha */}
                 <FormField
                   control={form.control}
@@ -637,13 +628,51 @@ export function OperatorJobForm({ machines, sites, rateCards }: OperatorJobFormP
                   )}
                 />
 
-                {/* Live amount preview */}
-                {quantity > 0 && watchedActualRate > 0 && (
+                {/* Batha Paid By */}
+                <FormField
+                  control={form.control}
+                  name="bathaPaidBy"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Batha Paid By <span className="text-destructive">*</span></FormLabel>
+                      <FormControl>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            type="button"
+                            onClick={() => field.onChange('party')}
+                            className={`min-h-[56px] rounded-xl border-2 font-semibold text-sm transition-all
+                              ${field.value === 'party'
+                                ? 'border-chart-5 bg-chart-5/10 text-chart-5'
+                                : 'border-border bg-card text-muted-foreground hover:border-chart-5/40'
+                              }`}
+                          >
+                            Party
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => field.onChange('company')}
+                            className={`min-h-[56px] rounded-xl border-2 font-semibold text-sm transition-all
+                              ${field.value === 'company'
+                                ? 'border-destructive bg-destructive/10 text-destructive'
+                                : 'border-border bg-card text-muted-foreground hover:border-destructive/40'
+                              }`}
+                          >
+                            Company
+                          </button>
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Live quantity preview */}
+                {quantity > 0 && (
                   <div className="rounded-xl bg-primary/5 border border-primary/20 px-4 py-3 flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">
-                      {quantity.toLocaleString('en-IN')}&nbsp;{trackingUnit === 'trips' ? 'trips' : 'hrs'} × {formatINR(watchedActualRate)}
+                    <span className="text-sm font-medium text-muted-foreground">Total Work</span>
+                    <span className="font-bold text-primary text-base">
+                      {quantity.toLocaleString('en-IN')}&nbsp;{trackingUnit === 'trips' ? 'trips' : 'hrs'}
                     </span>
-                    <span className="font-bold text-primary text-base">{formatINR(estimatedAmount)}</span>
                   </div>
                 )}
 

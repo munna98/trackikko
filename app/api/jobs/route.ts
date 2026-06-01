@@ -16,6 +16,7 @@ const createJobSchema = z.object({
   tripCount: z.coerce.number().int().min(0).optional().nullable(),
   actualRate: z.coerce.number().min(0, 'Rate is required'),
   batha: z.coerce.number().min(0).default(0),
+  bathaPaidBy: z.enum(['party', 'company']).default('party'),
   staffId: z.string().optional(), // only admins can set this
 })
 
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
       tripCount,
       actualRate,
       batha,
+      bathaPaidBy,
       staffId: bodyStaffId,
     } = parsed.data
 
@@ -141,6 +143,7 @@ export async function POST(request: NextRequest) {
           actualRate,
           amount,
           batha,
+          bathaPaidBy,
           recordedBy: user.id,
         },
       })
@@ -152,6 +155,29 @@ export async function POST(request: NextRequest) {
           data: { currentMeterReading: closingReading },
         })
       }
+
+      // Update party running balance
+      await tx.party.update({
+        where: { id: partyId },
+        data: { runningBalance: { increment: amount } },
+      })
+
+      // Create LedgerEntry
+      await tx.ledgerEntry.create({
+        data: {
+          businessId,
+          date: new Date(date),
+          type: 'job',
+          referenceId: job.id,
+          partyId,
+          machineId,
+          staffId,
+          entryType: 'debit',
+          amount,
+          recordedBy: user.id,
+          description: `${machine.name} – ${site.name}`,
+        },
+      })
 
       return job
     })
@@ -199,7 +225,7 @@ export async function GET(request: NextRequest) {
         site: { include: { party: true } },
         staff: { select: { id: true, name: true } },
       },
-      orderBy: { date: 'desc' },
+      orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
       take: limit,
     })
@@ -220,6 +246,7 @@ export async function GET(request: NextRequest) {
       actualRate: j.actualRate.toNumber(),
       amount: j.amount.toNumber(),
       batha: j.batha.toNumber(),
+      bathaPaidBy: j.bathaPaidBy,
       staffName: j.staff.name,
       staffId: j.staff.id,
     }))

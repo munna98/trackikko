@@ -27,6 +27,7 @@ export default async function JobsPage({
   const siteId = params.siteId ?? undefined
   const from = params.from ?? undefined
   const to = params.to ?? undefined
+  const status = params.status ?? undefined
 
   const [jobs, machines, staffList, siteList] = await Promise.all([
     prisma.job.findMany({
@@ -38,13 +39,15 @@ export default async function JobsPage({
         ...(siteId && { siteId }),
         ...(from && { date: { gte: new Date(from) } }),
         ...(to && { date: { lte: new Date(to) } }),
+        ...(status === 'reviewed' && { isReviewed: true }),
+        ...(status === 'unreviewed' && { isReviewed: false }),
       },
       include: {
         machine: { include: { machineType: true } },
         site: { include: { party: true } },
         staff: { select: { id: true, name: true } },
       },
-      orderBy: { date: 'desc' },
+      orderBy: { createdAt: 'desc' },
       take: 50,
     }),
     prisma.machine.findMany({
@@ -81,6 +84,8 @@ export default async function JobsPage({
     actualRate: j.actualRate.toNumber(),
     amount: j.amount.toNumber(),
     batha: j.batha.toNumber(),
+    bathaPaidBy: j.bathaPaidBy,
+    isReviewed: j.isReviewed,
     staffName: j.staff.name,
     staffId: j.staff.id,
   }))
@@ -129,6 +134,7 @@ export default async function JobsPage({
           currentSiteId={siteId}
           currentFrom={from}
           currentTo={to}
+          currentStatus={status}
         />
       )}
     </div>

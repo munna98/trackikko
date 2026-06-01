@@ -27,6 +27,13 @@ enum RateTypeEnum {
   @@map("rate_type_enum")
 }
 
+enum BathaPaidBy {
+  party
+  company
+  @@map("batha_paid_by")
+}
+
+
 enum AccountType {
   cash
   bank
@@ -100,6 +107,7 @@ model User {
   address            String?
   bloodGroup         String?  @map("blood_group")
   designation        String?
+  baseSalary         Decimal? @map("base_salary") @db.Decimal
   advanceBalance     Decimal  @default(0) @map("advance_balance") @db.Decimal
   passwordHash       String?  @map("password_hash")
   mustChangePassword Boolean  @default(false) @map("must_change_password")
@@ -398,6 +406,8 @@ model Job {
   actualRate     Decimal      @map("actual_rate") @db.Decimal
   amount         Decimal      @db.Decimal
   batha          Decimal      @default(0) @db.Decimal
+  bathaPaidBy    BathaPaidBy  @default(party) @map("batha_paid_by")
+  isReviewed     Boolean      @default(false) @map("is_reviewed")
   recordedBy     String?      @map("recorded_by")
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime     @default(now()) @map("updated_at") @db.Timestamptz

@@ -1,13 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import logoImg from '@/public/logo.png'
-import { Loader2, Delete } from 'lucide-react'
+import { Loader2, Delete, Eye, EyeOff } from 'lucide-react'
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 
@@ -74,10 +74,18 @@ function PinPad({ pin, onChange }: { pin: string; onChange: (p: string) => void 
 
 export default function LoginPage() {
   const router = useRouter()
-  const [mode, setMode] = useState<'email' | 'operator'>('email')
+  // Default to operator (PIN) on mobile, email on desktop
+  const [mode, setMode] = useState<'email' | 'operator'>('operator')
+
+  useEffect(() => {
+    if (window.matchMedia('(min-width: 768px)').matches) {
+      setMode('email')
+    }
+  }, [])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [pin, setPin] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
 
   // Email form
   const emailForm = useForm<EmailForm>({ resolver: zodResolver(emailSchema) })
@@ -191,15 +199,26 @@ export default function LoginPage() {
 
               <div className="space-y-1.5">
                 <label htmlFor="password" className="text-sm font-medium text-foreground">Password</label>
-                <input
-                  id="password"
-                  type="password"
-                  autoComplete="current-password"
-                  placeholder="••••••••"
-                  {...emailForm.register('password')}
-                  className="w-full rounded-lg border border-input bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-all focus:ring-2 focus:ring-ring focus:border-ring"
-                  style={{ borderColor: emailForm.formState.errors.password ? 'var(--destructive)' : undefined }}
-                />
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    {...emailForm.register('password')}
+                    className="w-full rounded-lg border border-input bg-muted px-3 py-2.5 pr-10 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-all focus:ring-2 focus:ring-ring focus:border-ring"
+                    style={{ borderColor: emailForm.formState.errors.password ? 'var(--destructive)' : undefined }}
+                  />
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
                 {emailForm.formState.errors.password && (
                   <p className="text-xs text-destructive">{emailForm.formState.errors.password.message}</p>
                 )}
@@ -273,25 +292,17 @@ export default function LoginPage() {
           )}
 
           {/* ── Mode toggle ────────────────────────────────────────── */}
-          <div className="mt-5 pt-4 border-t border-border text-center">
-            {mode === 'email' ? (
-              <button
-                type="button"
-                onClick={() => switchMode('operator')}
-                className="text-xs text-primary hover:underline underline-offset-2 transition-colors"
-              >
-                I'm an Operator → Login with PIN
-              </button>
-            ) : (
+          {mode === 'operator' && (
+            <div className="mt-5 pt-4 border-t border-border text-center">
               <button
                 type="button"
                 onClick={() => switchMode('email')}
                 className="text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
-                ← Back to email login
+                Login with password instead
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         <p className="text-center text-xs mt-6 text-muted-foreground/50">

@@ -171,6 +171,7 @@ export default async function StaffDetailPage({ params }: PageProps) {
                 bloodGroup: staffMember.bloodGroup ?? undefined,
                 designation: staffMember.designation ?? undefined,
                 username: staffMember.username ?? undefined,
+                baseSalary: staffMember.baseSalary?.toNumber() ?? undefined,
               }}
               currentUserId={user.id}
             />

@@ -51,6 +51,7 @@ export default async function AdminNewJobPage() {
     name: m.name,
     trackingUnit: m.machineType.trackingUnit as 'hours' | 'trips' | 'km',
     hasModes: m.machineType.hasModes,
+    currentMeterReading: m.currentMeterReading.toNumber(),
   }))
 
   const serialSites: SerialSite[] = sites.map((s: SiteRow) => ({

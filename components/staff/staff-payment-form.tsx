@@ -46,12 +46,14 @@ type AccountOption = { id: string; name: string; type: string }
 type StaffPaymentFormProps = {
   staffId: string
   advanceBalance: number
+  baseSalary?: number
   accounts: AccountOption[]
 }
 
 export function StaffPaymentForm({
   staffId,
   advanceBalance,
+  baseSalary,
   accounts,
 }: StaffPaymentFormProps) {
   const router = useRouter()
@@ -66,7 +68,7 @@ export function StaffPaymentForm({
       periodTo: '',
       daysWorked: 0,
       bathaTotal: 0,
-      salary: undefined,
+      salary: baseSalary ?? undefined,
       advancesDeducted: advanceBalance,
       netPaid: 0,
       accountId: '',
@@ -261,6 +263,11 @@ export function StaffPaymentForm({
                         value={field.value ?? ''}
                       />
                     </FormControl>
+                    {baseSalary && (
+                      <p className="text-xs text-muted-foreground">
+                        Pre-filled from staff profile (₹{baseSalary.toLocaleString('en-IN')})
+                      </p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}

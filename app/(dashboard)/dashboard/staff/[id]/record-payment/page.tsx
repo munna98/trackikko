@@ -35,6 +35,7 @@ export default async function RecordPaymentPage({ params }: PageProps) {
         designation: true,
         businessId: true,
         advanceBalance: true,
+        baseSalary: true,
       },
     }),
     prisma.account.findMany({
@@ -86,6 +87,7 @@ export default async function RecordPaymentPage({ params }: PageProps) {
         <StaffPaymentForm
           staffId={id}
           advanceBalance={staffMember.advanceBalance.toNumber()}
+          baseSalary={staffMember.baseSalary ? staffMember.baseSalary.toNumber() : undefined}
           accounts={serialisedAccounts}
         />
       </div>

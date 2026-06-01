@@ -47,9 +47,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           deletedAt: null,
           date: { gte: new Date(from), lte: new Date(to) },
         },
-        select: { batha: true },
+        select: { batha: true, bathaPaidBy: true },
       })
-      const bathaTotal = jobs.reduce((sum, j) => sum + j.batha.toNumber(), 0)
+      const bathaTotal = jobs
+        .filter((j) => j.bathaPaidBy === 'company')
+        .reduce((sum, j) => sum + j.batha.toNumber(), 0)
       return NextResponse.json({
         bathaTotal,
         advancesDeducted: staff.advanceBalance.toNumber(),

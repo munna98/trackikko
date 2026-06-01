@@ -27,7 +27,7 @@ export default async function MyRecordsPage() {
       machine: { include: { machineType: true } },
       site: { include: { party: true } },
     },
-    orderBy: { date: 'desc' },
+    orderBy: { createdAt: 'desc' },
     take: 30,
   })
 
@@ -40,7 +40,6 @@ export default async function MyRecordsPage() {
 
   const monthlyJobCount = thisMonthJobs.length
   const monthlyBatha = thisMonthJobs.reduce((s: number, j: JobRow) => s + j.batha.toNumber(), 0)
-  const monthlyAmount = thisMonthJobs.reduce((s: number, j: JobRow) => s + j.amount.toNumber(), 0)
 
   const serialJobs = jobs.map((j: JobRow) => ({
     id: j.id,
@@ -53,6 +52,7 @@ export default async function MyRecordsPage() {
     quantity: j.quantity.toNumber(),
     amount: j.amount.toNumber(),
     batha: j.batha.toNumber(),
+    bathaPaidBy: j.bathaPaidBy,
   }))
 
   return (
@@ -63,7 +63,7 @@ export default async function MyRecordsPage() {
       </div>
 
       {/* Monthly summary */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <div className="rounded-2xl border border-border bg-card p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">Jobs</p>
           <p className="text-2xl font-bold text-card-foreground">{monthlyJobCount}</p>
@@ -72,11 +72,6 @@ export default async function MyRecordsPage() {
         <div className="rounded-2xl border border-border bg-card p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">Batha</p>
           <p className="text-xl font-bold text-chart-5">{formatINR(monthlyBatha)}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">this month</p>
-        </div>
-        <div className="rounded-2xl border border-border bg-card p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">Billed</p>
-          <p className="text-xl font-bold text-primary">{formatINR(monthlyAmount)}</p>
           <p className="text-xs text-muted-foreground mt-0.5">this month</p>
         </div>
       </div>
@@ -119,9 +114,13 @@ export default async function MyRecordsPage() {
                 <span className="text-xs text-muted-foreground">
                   {job.quantity.toLocaleString('en-IN')} {UNIT_LABEL[job.trackingUnit] ?? job.trackingUnit}
                 </span>
-                <span className="ml-auto font-semibold text-sm text-foreground">{formatINR(job.amount)}</span>
                 {job.batha > 0 && (
-                  <span className="text-xs text-chart-5">+{formatINR(job.batha)}</span>
+                  <span className={`ml-auto text-xs font-semibold ${job.bathaPaidBy === 'company' ? 'text-destructive' : 'text-chart-5'}`}>
+                    +{formatINR(job.batha)}{' '}
+                    <span className="text-[10px] text-muted-foreground font-normal">
+                      ({job.bathaPaidBy === 'company' ? 'Company' : 'Party'})
+                    </span>
+                  </span>
                 )}
               </div>
             </div>

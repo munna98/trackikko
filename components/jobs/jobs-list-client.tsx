@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { X } from 'lucide-react'
+import { X, ClockCheck, CircleCheckBig } from 'lucide-react'
 import { formatINR, formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 
@@ -36,6 +36,8 @@ export type JobRow = {
   actualRate: number
   amount: number
   batha: number
+  bathaPaidBy: 'party' | 'company'
+  isReviewed: boolean
   staffName: string
   staffId: string
 }
@@ -55,6 +57,7 @@ type JobsListClientProps = {
   currentSiteId?: string
   currentFrom?: string
   currentTo?: string
+  currentStatus?: string
 }
 
 const UNIT_LABEL: Record<string, string> = { hours: 'hrs', trips: 'trips', km: 'km' }
@@ -62,7 +65,13 @@ const MODE_LABEL: Record<string, string> = { bucket: 'Bucket', breaking: 'Breaki
 
 // ── Mobile job card ──────────────────────────────────────────────────────────
 
-function JobCard({ job }: { job: JobRow }) {
+type JobCardProps = {
+  job: JobRow
+  onToggle: (id: string, currentStatus: boolean) => void
+  isUpdating: boolean
+}
+
+function JobCard({ job, onToggle, isUpdating }: JobCardProps) {
   return (
     <Link
       href={`/dashboard/jobs/${job.id}`}
@@ -75,9 +84,33 @@ function JobCard({ job }: { job: JobRow }) {
             {job.partyName} · {job.siteName}
           </p>
         </div>
-        <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
-          {formatDate(job.date)}
-        </span>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            {formatDate(job.date)}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "h-8 w-8 rounded-lg transition-all",
+              job.isReviewed 
+                ? "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50" 
+                : "text-muted-foreground hover:text-amber-600 hover:bg-amber-50"
+            )}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onToggle(job.id, job.isReviewed)
+            }}
+            disabled={isUpdating}
+          >
+            {job.isReviewed ? (
+              <CircleCheckBig className="h-4 w-4" />
+            ) : (
+              <ClockCheck className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
       </div>
 
       <div className="flex items-center gap-2 flex-wrap mt-3">
@@ -89,7 +122,9 @@ function JobCard({ job }: { job: JobRow }) {
         </span>
         <span className="ml-auto font-semibold text-sm text-foreground">{formatINR(job.amount)}</span>
         {job.batha > 0 && (
-          <span className="text-xs text-chart-5">+{formatINR(job.batha)} batha</span>
+          <span className={job.bathaPaidBy === 'company' ? 'text-xs text-destructive font-semibold' : 'text-xs text-chart-5'}>
+            +{formatINR(job.batha)} batha
+          </span>
         )}
       </div>
 
@@ -110,6 +145,7 @@ export function JobsListClient({
   currentSiteId = '',
   currentFrom = '',
   currentTo = '',
+  currentStatus = '',
 }: JobsListClientProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -120,15 +156,59 @@ export function JobsListClient({
   const [siteId, setSiteId] = React.useState(currentSiteId)
   const [from, setFrom] = React.useState(currentFrom)
   const [to, setTo] = React.useState(currentTo)
+  const [status, setStatus] = React.useState(currentStatus)
+
+  // Local state for optimistic updates
+  const [jobsList, setJobsList] = React.useState(jobs)
+  const [updatingIds, setUpdatingIds] = React.useState<Set<string>>(new Set())
+
+  React.useEffect(() => {
+    setJobsList(jobs)
+  }, [jobs])
+
+  const toggleReviewed = async (jobId: string, currentStatus: boolean) => {
+    if (updatingIds.has(jobId)) return
+    
+    // Optimistic UI update
+    setJobsList(prev => prev.map(j => j.id === jobId ? { ...j, isReviewed: !currentStatus } : j))
+    setUpdatingIds(prev => {
+      const next = new Set(prev)
+      next.add(jobId)
+      return next
+    })
+
+    try {
+      const res = await fetch(`/api/jobs/${jobId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isReviewed: !currentStatus }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to update status')
+      }
+    } catch (err) {
+      console.error(err)
+      // Revert optimistic update
+      setJobsList(prev => prev.map(j => j.id === jobId ? { ...j, isReviewed: currentStatus } : j))
+    } finally {
+      setUpdatingIds(prev => {
+        const next = new Set(prev)
+        next.delete(jobId)
+        return next
+      })
+    }
+  }
 
   function buildUrl(overrides: Record<string, string>) {
     const params = new URLSearchParams()
-    const vals = { machineId, staffId, siteId, from, to, ...overrides }
+    const vals = { machineId, staffId, siteId, from, to, status, ...overrides }
     if (vals.machineId) params.set('machineId', vals.machineId)
     if (vals.staffId) params.set('staffId', vals.staffId)
     if (vals.siteId) params.set('siteId', vals.siteId)
     if (vals.from) params.set('from', vals.from)
     if (vals.to) params.set('to', vals.to)
+    if (vals.status) params.set('status', vals.status)
     return `${pathname}?${params.toString()}`
   }
 
@@ -142,10 +222,11 @@ export function JobsListClient({
     setSiteId('')
     setFrom('')
     setTo('')
+    setStatus('')
     router.push(pathname)
   }
 
-  const hasFilters = !!(currentMachineId || currentStaffId || currentSiteId || currentFrom || currentTo)
+  const hasFilters = !!(currentMachineId || currentStaffId || currentSiteId || currentFrom || currentTo || currentStatus)
 
   // DataTable columns
   const columns: ColumnDef<JobRow>[] = [
@@ -203,11 +284,15 @@ export function JobsListClient({
     {
       accessorKey: 'batha',
       header: 'Batha',
-      cell: ({ getValue }) => {
-        const v = Number(getValue())
-        return v > 0
-          ? <span className="text-xs text-chart-5 font-medium">{formatINR(v)}</span>
-          : <span className="text-muted-foreground text-xs">—</span>
+      cell: ({ row }) => {
+        const v = Number(row.original.batha)
+        return v > 0 ? (
+          <span className={row.original.bathaPaidBy === 'company' ? 'text-xs text-destructive font-semibold' : 'text-xs text-chart-5 font-medium'}>
+            {formatINR(v)}
+          </span>
+        ) : (
+          <span className="text-muted-foreground text-xs">—</span>
+        )
       },
     },
     {
@@ -220,14 +305,41 @@ export function JobsListClient({
     {
       id: 'action',
       header: '',
-      cell: ({ row }) => (
-        <Link
-          href={`/dashboard/jobs/${row.original.id}`}
-          className="text-xs text-primary hover:underline"
-        >
-          View
-        </Link>
-      ),
+      cell: ({ row }) => {
+        const job = row.original
+        const isReviewed = job.isReviewed
+        const isUpdating = updatingIds.has(job.id)
+
+        return (
+          <div className="flex items-center gap-2 justify-end">
+            <Link
+              href={`/dashboard/jobs/${job.id}`}
+              className="text-xs text-primary hover:underline"
+            >
+              View
+            </Link>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-8 w-8 rounded-lg transition-all",
+                isReviewed 
+                  ? "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50" 
+                  : "text-muted-foreground hover:text-amber-600 hover:bg-amber-50"
+              )}
+              onClick={() => toggleReviewed(job.id, isReviewed)}
+              disabled={isUpdating}
+              title={isReviewed ? "Reviewed" : "Pending Review"}
+            >
+              {isReviewed ? (
+                <CircleCheckBig className="h-4 w-4" />
+              ) : (
+                <ClockCheck className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        )
+      },
     },
   ]
 
@@ -292,6 +404,24 @@ export function JobsListClient({
           </SelectContent>
         </Select>
 
+        <Select
+          value={status || '_all'}
+          onValueChange={(v) => {
+            const val = v === '_all' ? '' : v
+            setStatus(val)
+            applyFilter('status', val)
+          }}
+        >
+          <SelectTrigger className="w-40" id="filter-status">
+            <SelectValue placeholder="All status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="_all">All status</SelectItem>
+            <SelectItem value="unreviewed">Pending Review</SelectItem>
+            <SelectItem value="reviewed">Reviewed</SelectItem>
+          </SelectContent>
+        </Select>
+
         <Input
           id="filter-from"
           type="date"
@@ -330,15 +460,20 @@ export function JobsListClient({
       </div>
 
       {/* Mobile: card list */}
-      <div className={cn('space-y-3 md:hidden', jobs.length === 0 && 'hidden')}>
-        {jobs.map((job) => (
-          <JobCard key={job.id} job={job} />
+      <div className={cn('space-y-3 md:hidden', jobsList.length === 0 && 'hidden')}>
+        {jobsList.map((job) => (
+          <JobCard 
+            key={job.id} 
+            job={job} 
+            onToggle={toggleReviewed}
+            isUpdating={updatingIds.has(job.id)}
+          />
         ))}
       </div>
 
       {/* Desktop: data table */}
       <div className="hidden md:block">
-        <DataTable columns={columns} data={jobs} />
+        <DataTable columns={columns} data={jobsList} />
       </div>
     </div>
   )

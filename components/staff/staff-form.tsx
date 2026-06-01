@@ -51,6 +51,13 @@ const getStaffSchema = (isEdit: boolean) => z.object({
   address: z.string().optional().or(z.literal('')),
   bloodGroup: z.string().optional().or(z.literal('')),
   designation: z.string().optional().or(z.literal('')),
+  baseSalary: z.coerce
+    .number()
+    .positive('Base salary must be positive')
+    .optional()
+    .nullable()
+    .or(z.literal(''))
+    .transform((v) => (v === '' || v == null ? null : Number(v))),
 }).superRefine((data, ctx) => {
   // Check if role is admin or accountant
   if (data.roleId === 'admin' || data.roleId === 'accountant') {
@@ -168,6 +175,7 @@ export type StaffDefaultValues = {
   address?: string | null
   bloodGroup?: string | null
   designation?: string | null
+  baseSalary?: number | null
 }
 
 type StaffFormProps = {
@@ -198,6 +206,7 @@ export function StaffForm({ defaultValues, onSuccess, currentUserId }: StaffForm
       address: defaultValues?.address ?? '',
       bloodGroup: defaultValues?.bloodGroup ?? '',
       designation: defaultValues?.designation ?? '',
+      baseSalary: defaultValues?.baseSalary ?? '',
     },
   })
 
@@ -251,6 +260,7 @@ export function StaffForm({ defaultValues, onSuccess, currentUserId }: StaffForm
         address: values.address || null,
         bloodGroup: values.bloodGroup || null,
         designation: values.designation || null,
+        baseSalary: values.baseSalary ?? null,
         ...(!isEdit && { password }), // Only sent on create
       }
 
@@ -538,6 +548,30 @@ export function StaffForm({ defaultValues, onSuccess, currentUserId }: StaffForm
                   <option key={d} value={d} />
                 ))}
               </datalist>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="baseSalary"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Base Salary (₹) <span className="text-muted-foreground text-xs">(optional)</span></FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  min={1}
+                  step={1}
+                  placeholder="e.g. 15000"
+                  {...field}
+                  value={field.value ?? ''}
+                />
+              </FormControl>
+              <FormDescription className="text-xs">
+                Auto-populated in Record Payment form.
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}

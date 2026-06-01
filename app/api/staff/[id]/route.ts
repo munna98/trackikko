@@ -12,6 +12,7 @@ const editStaffSchema = z.object({
   address: z.string().optional().nullable(),
   bloodGroup: z.string().optional().nullable(),
   designation: z.string().optional().nullable(),
+  baseSalary: z.coerce.number().positive().optional().nullable(),
 })
 
 type RouteParams = { params: Promise<{ id: string }> }
@@ -39,7 +40,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' }, { status: 400 })
     }
 
-    const { name, roleId, username, mobile, address, bloodGroup, designation } = parsed.data
+    const { name, roleId, username, mobile, address, bloodGroup, designation, baseSalary } = parsed.data
 
     // Cannot change own role
     if (roleId && id === user.id) {
@@ -75,6 +76,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         ...(address !== undefined && { address }),
         ...(bloodGroup !== undefined && { bloodGroup }),
         ...(designation !== undefined && { designation }),
+        ...(baseSalary !== undefined && { baseSalary: baseSalary ?? null }),
         updatedAt: new Date(),
       },
     })

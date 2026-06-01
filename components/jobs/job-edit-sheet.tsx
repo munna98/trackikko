@@ -23,10 +23,18 @@ import {
   SheetTitle,
   SheetFooter,
 } from '@/components/ui/sheet'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 const editJobSchema = z.object({
   actualRate: z.coerce.number().min(0, 'Rate must be ≥ 0'),
   batha: z.coerce.number().min(0),
+  bathaPaidBy: z.enum(['party', 'company']),
   date: z.string().min(1, 'Date is required'),
 })
 
@@ -39,6 +47,7 @@ type JobEditSheetProps = {
   defaultValues: {
     actualRate: number
     batha: number
+    bathaPaidBy: 'party' | 'company'
     date: string // ISO date string YYYY-MM-DD
   }
 }
@@ -52,6 +61,7 @@ export function JobEditSheet({ open, onOpenChange, jobId, defaultValues }: JobEd
     defaultValues: {
       actualRate: defaultValues.actualRate,
       batha: defaultValues.batha,
+      bathaPaidBy: defaultValues.bathaPaidBy,
       date: defaultValues.date,
     },
   })
@@ -62,6 +72,7 @@ export function JobEditSheet({ open, onOpenChange, jobId, defaultValues }: JobEd
       form.reset({
         actualRate: defaultValues.actualRate,
         batha: defaultValues.batha,
+        bathaPaidBy: defaultValues.bathaPaidBy,
         date: defaultValues.date,
       })
     }
@@ -134,6 +145,24 @@ export function JobEditSheet({ open, onOpenChange, jobId, defaultValues }: JobEd
                       onChange={(e) => field.onChange(Number(e.target.value))}
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <FormField control={form.control} name="bathaPaidBy" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Batha Paid By</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select who pays Batha" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="party">Party (Direct on Site)</SelectItem>
+                      <SelectItem value="company">Company (Party Refused)</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )} />

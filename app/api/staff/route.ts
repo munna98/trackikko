@@ -14,6 +14,7 @@ const createStaffSchema = z.object({
   address: z.string().optional(),
   bloodGroup: z.string().optional(),
   designation: z.string().optional(),
+  baseSalary: z.coerce.number().positive().optional().nullable(),
 })
 
 /** Auto-generate a unique username from the first word of a name */
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { name, email, roleId, password, mobile, address, bloodGroup, designation } =
+    const { name, email, roleId, password, mobile, address, bloodGroup, designation, baseSalary } =
       parsed.data
     const businessId = user.businessId
 
@@ -87,6 +88,7 @@ export async function POST(request: NextRequest) {
         address: address || null,
         bloodGroup: bloodGroup || null,
         designation: designation || null,
+        baseSalary: baseSalary ?? null,
       },
     })
 
