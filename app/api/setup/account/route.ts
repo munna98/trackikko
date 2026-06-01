@@ -1,25 +1,14 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-
-    if (!session?.user?.email) {
+    const user = await getCurrentUser()
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    // Always read businessId from server — never trust client
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email, deletedAt: null },
-      select: { id: true, businessId: true },
-    })
-
-    if (!user?.businessId) {
+    if (!user.businessId) {
       return NextResponse.json({ error: 'No business found' }, { status: 400 })
     }
 

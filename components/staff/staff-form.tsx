@@ -4,11 +4,12 @@ import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Loader2 } from 'lucide-react'
+import { Loader2, ShieldAlert } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 import {
   Form,
   FormControl,
@@ -34,20 +35,143 @@ const ROLES = [
   { id: 'operator', label: 'Operator' },
 ] as const
 
-const staffSchema = z.object({
+const slugify = (str: string) => {
+  return str.toLowerCase().trim().split(' ')[0].replace(/[^a-z0-9]/g, '') || ''
+}
+
+const getStaffSchema = (isEdit: boolean) => z.object({
   name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Enter a valid email'),
   roleId: z.enum(['admin', 'accountant', 'operator']),
-  mobile: z.string().optional(),
-  address: z.string().optional(),
-  bloodGroup: z.string().optional(),
-  designation: z.string().optional(),
+  email: z.string().optional().or(z.literal('')),
+  username: z.string().optional().or(z.literal('')),
+  password: z.string().optional().or(z.literal('')),
+  pin: z.string().optional().or(z.literal('')),
+  resetCredentials: z.boolean().optional(),
+  mobile: z.string().optional().or(z.literal('')),
+  address: z.string().optional().or(z.literal('')),
+  bloodGroup: z.string().optional().or(z.literal('')),
+  designation: z.string().optional().or(z.literal('')),
+}).superRefine((data, ctx) => {
+  // Check if role is admin or accountant
+  if (data.roleId === 'admin' || data.roleId === 'accountant') {
+    if (!data.email) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['email'],
+        message: 'Email is required',
+      })
+    } else {
+      const emailRes = z.string().email().safeParse(data.email)
+      if (!emailRes.success) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['email'],
+          message: 'Enter a valid email',
+        })
+      }
+    }
+  }
+
+  // Username validation for operator (both creation and edit mode)
+  if (data.roleId === 'operator') {
+    if (!data.username) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['username'],
+        message: 'Username is required',
+      })
+    } else if (!/^[a-z0-9_]+$/.test(data.username)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['username'],
+        message: 'Username must contain only letters, numbers, or underscores',
+      })
+    }
+  }
+
+  // Password / PIN validation
+  if (!isEdit) {
+    if (data.roleId === 'operator') {
+      if (!data.pin) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['pin'],
+          message: 'PIN is required',
+        })
+      } else if (!/^\d{4}$/.test(data.pin)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['pin'],
+          message: 'PIN must be exactly 4 digits (numeric only)',
+        })
+      }
+    } else {
+      if (!data.password) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['password'],
+          message: 'Password is required',
+        })
+      } else if (data.password.length < 6) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['password'],
+          message: 'Password must be at least 6 characters',
+        })
+      }
+    }
+  } else {
+    // Edit mode with credentials reset toggled
+    if (data.resetCredentials) {
+      if (data.roleId === 'operator') {
+        if (!data.pin) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['pin'],
+            message: 'New PIN is required',
+          })
+        } else if (!/^\d{4}$/.test(data.pin)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['pin'],
+            message: 'PIN must be exactly 4 digits (numeric only)',
+          })
+        }
+      } else {
+        if (!data.password) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['password'],
+            message: 'New password is required',
+          })
+        } else if (data.password.length < 6) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['password'],
+            message: 'Password must be at least 6 characters',
+          })
+        }
+      }
+    }
+  }
 })
 
-type StaffFormValues = z.infer<typeof staffSchema>
+type StaffFormValues = z.infer<ReturnType<typeof getStaffSchema>>
+
+export type StaffDefaultValues = {
+  id?: string
+  name?: string
+  email?: string | null
+  username?: string | null
+  roleId?: 'admin' | 'accountant' | 'operator'
+  mobile?: string | null
+  address?: string | null
+  bloodGroup?: string | null
+  designation?: string | null
+}
 
 type StaffFormProps = {
-  defaultValues?: Partial<StaffFormValues> & { id?: string }
+  defaultValues?: StaffDefaultValues
   onSuccess: (message?: string) => void
   currentUserId?: string
 }
@@ -56,14 +180,20 @@ export function StaffForm({ defaultValues, onSuccess, currentUserId }: StaffForm
   const router = useRouter()
   const isEdit = Boolean(defaultValues?.id)
   const isSelf = isEdit && defaultValues?.id === currentUserId
+  const prevNameRef = React.useRef('')
+
+  const schema = React.useMemo(() => getStaffSchema(isEdit), [isEdit])
 
   const form = useForm<StaffFormValues>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(staffSchema) as any,
+    resolver: zodResolver(schema),
     defaultValues: {
       name: defaultValues?.name ?? '',
       email: defaultValues?.email ?? '',
+      username: defaultValues?.username ?? '',
       roleId: defaultValues?.roleId ?? 'operator',
+      password: '',
+      pin: '',
+      resetCredentials: false,
       mobile: defaultValues?.mobile ?? '',
       address: defaultValues?.address ?? '',
       bloodGroup: defaultValues?.bloodGroup ?? '',
@@ -71,27 +201,88 @@ export function StaffForm({ defaultValues, onSuccess, currentUserId }: StaffForm
     },
   })
 
-  async function onSubmit(values: StaffFormValues) {
-    const url = isEdit ? `/api/staff/${defaultValues?.id}` : '/api/staff'
-    const method = isEdit ? 'PATCH' : 'POST'
+  const nameValue = form.watch('name')
+  const roleIdValue = form.watch('roleId')
+  const resetCredentialsValue = form.watch('resetCredentials')
 
-    // Don't send email on edit
-    const body = isEdit ? { ...values, email: undefined } : values
-
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-
-    if (!res.ok) {
-      const data = await res.json() as { error?: string }
-      form.setError('root', { message: data.error ?? 'Something went wrong' })
-      return
+  React.useEffect(() => {
+    if (!isEdit && roleIdValue === 'operator' && nameValue !== undefined) {
+      const currentUsername = form.getValues('username')
+      const prevGenerated = slugify(prevNameRef.current)
+      if (!currentUsername || currentUsername === prevGenerated) {
+        form.setValue('username', slugify(nameValue))
+      }
+      prevNameRef.current = nameValue
     }
+  }, [nameValue, roleIdValue, isEdit, form])
 
-    router.refresh()
-    onSuccess(isEdit ? undefined : `Invite sent to ${values.email}`)
+  async function onSubmit(values: StaffFormValues) {
+    try {
+      if (isEdit && values.resetCredentials) {
+        // If resetting credentials, hit reset-password endpoint first
+        const credRes = await fetch(`/api/staff/${defaultValues?.id}/reset-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            newPassword: values.roleId === 'operator' ? values.pin : values.password,
+          }),
+        })
+
+        if (!credRes.ok) {
+          const data = await credRes.json() as { error?: string }
+          form.setError('root', { message: data.error ?? 'Failed to reset credentials' })
+          return
+        }
+      }
+
+      const url = isEdit ? `/api/staff/${defaultValues?.id}` : '/api/staff'
+      const method = isEdit ? 'PATCH' : 'POST'
+
+      // Map pin to password field for API endpoint during operator creation
+      const password = values.roleId === 'operator' ? values.pin : values.password
+
+      // Remove password/pin/resetCredentials from profile payload
+      const payload = {
+        name: values.name,
+        roleId: values.roleId,
+        username: values.roleId === 'operator' ? (values.username || null) : null,
+        email: values.email || undefined,
+        mobile: values.mobile || null,
+        address: values.address || null,
+        bloodGroup: values.bloodGroup || null,
+        designation: values.designation || null,
+        ...(!isEdit && { password }), // Only sent on create
+      }
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (!res.ok) {
+        const data = await res.json() as { error?: string }
+        form.setError('root', { message: data.error ?? 'Something went wrong' })
+        return
+      }
+
+      const data = await res.json() as { username?: string }
+
+      router.refresh()
+
+      if (isEdit) {
+        onSuccess(values.resetCredentials ? 'Changes saved and credentials reset successfully!' : 'Changes saved successfully!')
+      } else {
+        if (values.roleId === 'operator') {
+          onSuccess(`Operator created! Username is "${data.username ?? values.username}" and PIN is "${values.pin}"`)
+        } else {
+          onSuccess(`Staff member created successfully!`)
+        }
+      }
+    } catch (err) {
+      console.error('[onSubmit StaffForm]', err)
+      form.setError('root', { message: 'An unexpected error occurred' })
+    }
   }
 
   const { isSubmitting, errors } = form.formState
@@ -108,27 +299,6 @@ export function StaffForm({ defaultValues, onSuccess, currentUserId }: StaffForm
               <FormControl>
                 <Input placeholder="e.g. Raju Singh" {...field} />
               </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email <span className="text-destructive">*</span></FormLabel>
-              <FormControl>
-                <Input
-                  type="email"
-                  placeholder="name@example.com"
-                  {...field}
-                  readOnly={isEdit}
-                  className={isEdit ? 'opacity-60 cursor-not-allowed' : ''}
-                />
-              </FormControl>
-              {isEdit && <FormDescription>Email cannot be changed after creation.</FormDescription>}
               <FormMessage />
             </FormItem>
           )}
@@ -161,6 +331,180 @@ export function StaffForm({ defaultValues, onSuccess, currentUserId }: StaffForm
             </FormItem>
           )}
         />
+
+        {/* Email field (only for admin and accountant) */}
+        {(roleIdValue === 'admin' || roleIdValue === 'accountant') && (
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Email <span className="text-destructive">*</span></FormLabel>
+                <FormControl>
+                  <Input
+                    type="email"
+                    placeholder="name@example.com"
+                    {...field}
+                    readOnly={isEdit}
+                    className={isEdit ? 'opacity-60 cursor-not-allowed' : ''}
+                  />
+                </FormControl>
+                {isEdit && <FormDescription>Email cannot be changed after creation.</FormDescription>}
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
+        {/* Username field (only for operator) */}
+        {roleIdValue === 'operator' && (
+          <FormField
+            control={form.control}
+            name="username"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Username <span className="text-destructive">*</span></FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="e.g. raju"
+                    {...field}
+                  />
+                </FormControl>
+                <FormDescription>
+                  {isEdit ? 'Used by operator to log in.' : 'Auto-generated from name. Used by operator to log in.'}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
+        {/* Security Credentials Section */}
+        {!isEdit ? (
+          <>
+            {roleIdValue === 'operator' ? (
+              <FormField
+                control={form.control}
+                name="pin"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Login PIN <span className="text-destructive">*</span></FormLabel>
+                    <FormControl>
+                      <Input
+                        type="text"
+                        pattern="[0-9]*"
+                        inputMode="numeric"
+                        maxLength={4}
+                        placeholder="4 digit PIN (e.g. 1234)"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>Operator will type this on the numeric pad to log in.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ) : (
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password <span className="text-destructive">*</span></FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="At least 6 characters"
+                        {...field}
+                      />
+                    </FormControl>
+                    {roleIdValue === 'admin' && (
+                      <FormDescription className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                        <ShieldAlert className="w-3.5 h-3.5 flex-shrink-0" />
+                        Admin will be forced to change this on their first login.
+                      </FormDescription>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+          </>
+        ) : (
+          <div className="space-y-4 border border-border/60 rounded-xl p-4 bg-muted/20">
+            <FormField
+              control={form.control}
+              name="resetCredentials"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between space-y-0">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-sm">Reset {roleIdValue === 'operator' ? 'PIN' : 'Password'}</FormLabel>
+                    <FormDescription className="text-xs">
+                      Enable this to reset security credentials.
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            {resetCredentialsValue && (
+              <>
+                {roleIdValue === 'operator' ? (
+                  <FormField
+                    control={form.control}
+                    name="pin"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>New PIN <span className="text-destructive">*</span></FormLabel>
+                        <FormControl>
+                          <Input
+                            type="text"
+                            pattern="[0-9]*"
+                            inputMode="numeric"
+                            maxLength={4}
+                            placeholder="4 digit PIN (e.g. 5678)"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ) : (
+                  <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>New Password <span className="text-destructive">*</span></FormLabel>
+                        <FormControl>
+                          <Input
+                            type="password"
+                            placeholder="At least 6 characters"
+                            {...field}
+                          />
+                        </FormControl>
+                        {roleIdValue === 'admin' && (
+                          <FormDescription className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                            <ShieldAlert className="w-3.5 h-3.5 flex-shrink-0" />
+                            Admin will be forced to change this on next login.
+                          </FormDescription>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         <FormField
           control={form.control}
@@ -222,7 +566,6 @@ export function StaffForm({ defaultValues, onSuccess, currentUserId }: StaffForm
           )}
         />
 
-
         <FormField
           control={form.control}
           name="address"
@@ -243,7 +586,7 @@ export function StaffForm({ defaultValues, onSuccess, currentUserId }: StaffForm
 
         <Button type="submit" className="w-full" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {isEdit ? 'Save Changes' : 'Send Invite'}
+          {isEdit ? 'Save Changes' : 'Create Staff Member'}
         </Button>
       </form>
     </Form>

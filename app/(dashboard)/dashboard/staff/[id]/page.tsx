@@ -164,12 +164,13 @@ export default async function StaffDetailPage({ params }: PageProps) {
               defaultValues={{
                 id: staffMember.id,
                 name: staffMember.name,
-                email: staffMember.email,
+                email: staffMember.email ?? undefined,
                 roleId: staffMember.roleId as 'admin' | 'accountant' | 'operator',
                 mobile: staffMember.mobile ?? undefined,
                 address: staffMember.address ?? undefined,
                 bloodGroup: staffMember.bloodGroup ?? undefined,
                 designation: staffMember.designation ?? undefined,
+                username: staffMember.username ?? undefined,
               }}
               currentUserId={user.id}
             />

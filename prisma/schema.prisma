@@ -82,7 +82,8 @@ model UserRole {
 
 model User {
   id        String   @id @default(cuid())
-  email     String   @unique
+  email     String?  @unique
+  username  String?  @unique
   name      String
   mobile    String?
   avatarUrl String?  @map("avatar_url")
@@ -96,10 +97,12 @@ model User {
   businessId String?   @map("business_id") @db.Uuid
   business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  address        String?
-  bloodGroup     String?  @map("blood_group")
-  designation    String?
-  advanceBalance Decimal  @default(0) @map("advance_balance") @db.Decimal
+  address            String?
+  bloodGroup         String?  @map("blood_group")
+  designation        String?
+  advanceBalance     Decimal  @default(0) @map("advance_balance") @db.Decimal
+  passwordHash       String?  @map("password_hash")
+  mustChangePassword Boolean  @default(false) @map("must_change_password")
 
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz
   deletedBy String?   @map("deleted_by")

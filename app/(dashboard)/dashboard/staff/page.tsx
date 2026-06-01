@@ -26,7 +26,7 @@ export default async function StaffPage() {
   const serialised = staff.map((s: typeof staff[number]) => ({
     id: s.id,
     name: s.name,
-    email: s.email,
+    email: s.email ?? undefined,
     mobile: s.mobile ?? undefined,
     designation: s.designation ?? undefined,
     bloodGroup: s.bloodGroup ?? undefined,
@@ -35,6 +35,7 @@ export default async function StaffPage() {
     isActive: s.isActive,
     advanceBalance: s.advanceBalance.toNumber(),
     address: s.address ?? undefined,
+    username: s.username ?? undefined,
   }))
 
   return (

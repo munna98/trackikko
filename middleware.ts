@@ -1,52 +1,37 @@
-import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { getIronSession } from 'iron-session'
+import { sessionOptions, type SessionData } from '@/lib/session'
 
 export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request })
   const { pathname } = request.nextUrl
 
   // API routes handle their own auth — never redirect them
-  if (pathname.startsWith('/api/')) return supabaseResponse
+  if (pathname.startsWith('/api/')) return NextResponse.next()
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          )
-          supabaseResponse = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
-        },
-      },
-    }
-  )
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  const response = NextResponse.next({ request })
+  const session = await getIronSession<SessionData>(request, response, sessionOptions)
 
   const isAuthRoute =
     pathname.startsWith('/login') ||
     pathname.startsWith('/setup') ||
     pathname.startsWith('/set-password')
 
-  if (!session && !isAuthRoute) {
+  // Not logged in → go to login
+  if (!session.userId && !isAuthRoute) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  if (session && pathname.startsWith('/login')) {
+  // Already logged in → don't let them see login page
+  if (session.userId && pathname.startsWith('/login')) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
-  return supabaseResponse
+  // Admin first login → force password change before anything else
+  if (session.userId && session.mustChangePassword && !pathname.startsWith('/set-password')) {
+    return NextResponse.redirect(new URL('/set-password', request.url))
+  }
+
+  return response
 }
 
 export const config = {

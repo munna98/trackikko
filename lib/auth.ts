@@ -1,29 +1,28 @@
 'use server'
 
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { cookies } from 'next/headers'
+import { getIronSession } from 'iron-session'
+import { sessionOptions, type SessionData } from '@/lib/session'
 import { prisma } from '@/lib/prisma'
 
 export async function getSession() {
-  const supabase = await createClient()
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  return session
+  const cookieStore = await cookies()
+  return getIronSession<SessionData>(cookieStore, sessionOptions)
 }
 
 export async function getCurrentUser() {
   const session = await getSession()
-  if (!session?.user?.email) return null
+  if (!session.userId) return null
 
   return prisma.user.findUnique({
-    where: { email: session.user.email, deletedAt: null },
+    where: { id: session.userId, deletedAt: null },
     include: { role: true, business: true },
   })
 }
 
 export async function signOut() {
-  const supabase = await createClient()
-  await supabase.auth.signOut()
+  const session = await getSession()
+  session.destroy()
   redirect('/login')
 }

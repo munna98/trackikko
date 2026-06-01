@@ -14,7 +14,7 @@ import { formatINR, getInitials, cn } from '@/lib/utils'
 type StaffMember = {
   id: string
   name: string
-  email: string
+  email?: string | null
   mobile?: string
   designation?: string
   bloodGroup?: string
@@ -23,6 +23,7 @@ type StaffMember = {
   isActive: boolean
   advanceBalance: number
   address?: string
+  username?: string | null
 }
 
 type Props = {
@@ -183,6 +184,7 @@ export function StaffListClient({ staff, isAdmin, currentUserId }: Props) {
                   address: row.original.address,
                   bloodGroup: row.original.bloodGroup,
                   designation: row.original.designation,
+                  username: row.original.username,
                 }}
                 currentUserId={currentUserId}
               />

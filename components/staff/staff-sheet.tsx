@@ -10,18 +10,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
-import { StaffForm } from '@/components/staff/staff-form'
-
-type StaffDefaultValues = {
-  id: string
-  name: string
-  email: string
-  roleId: 'admin' | 'accountant' | 'operator'
-  mobile?: string
-  address?: string
-  bloodGroup?: string
-  designation?: string
-}
+import { StaffForm, type StaffDefaultValues } from '@/components/staff/staff-form'
 
 type StaffSheetProps = {
   defaultValues?: StaffDefaultValues

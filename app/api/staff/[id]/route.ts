@@ -7,6 +7,7 @@ import { z } from 'zod'
 const editStaffSchema = z.object({
   name: z.string().min(1, 'Name is required').optional(),
   roleId: z.enum(['admin', 'accountant', 'operator']).optional(),
+  username: z.string().optional().nullable(),
   mobile: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
   bloodGroup: z.string().optional().nullable(),
@@ -38,11 +39,30 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' }, { status: 400 })
     }
 
-    const { name, roleId, mobile, address, bloodGroup, designation } = parsed.data
+    const { name, roleId, username, mobile, address, bloodGroup, designation } = parsed.data
 
     // Cannot change own role
     if (roleId && id === user.id) {
       return NextResponse.json({ error: 'Cannot change your own role' }, { status: 400 })
+    }
+
+    // Check username uniqueness if changing/setting
+    if (username) {
+      const cleanUsername = username.trim().toLowerCase()
+      if (!/^[a-z0-9_]+$/.test(cleanUsername)) {
+        return NextResponse.json({ error: 'Username must contain only letters, numbers, or underscores' }, { status: 400 })
+      }
+
+      const existing = await prisma.user.findFirst({
+        where: {
+          username: cleanUsername,
+          id: { not: id },
+          deletedAt: null,
+        },
+      })
+      if (existing) {
+        return NextResponse.json({ error: 'This username is already taken' }, { status: 409 })
+      }
     }
 
     await prisma.user.update({
@@ -50,6 +70,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       data: {
         ...(name !== undefined && { name }),
         ...(roleId !== undefined && { roleId }),
+        ...(username !== undefined && { username: username ? username.trim().toLowerCase() : null }),
         ...(mobile !== undefined && { mobile }),
         ...(address !== undefined && { address }),
         ...(bloodGroup !== undefined && { bloodGroup }),
