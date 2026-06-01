@@ -23,6 +23,8 @@ export function MobileNav() {
   const pathname = usePathname()
   const [sheetOpen, setSheetOpen] = useState(false)
 
+  const isMoreActive = moreNav.some(({ href }) => pathname.startsWith(href))
+
   return (
     <>
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex items-stretch bg-sidebar border-t border-sidebar-border" style={{ minHeight: '60px' }}>
@@ -30,15 +32,16 @@ export function MobileNav() {
           const isActive = href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href)
           return (
             <Link key={href} href={href}
-              className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors py-2
-                ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors py-2 mx-1 my-1 rounded-xl
+                ${isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-sidebar-accent/50'}`}>
               <Icon className="w-5 h-5" />
               <span>{label}</span>
             </Link>
           )
         })}
         <button id="mobile-nav-more-btn" onClick={() => setSheetOpen(true)}
-          className="flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium text-muted-foreground">
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors py-2 mx-1 my-1 rounded-xl
+            ${isMoreActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-sidebar-accent/50'}`}>
           <MoreHorizontal className="w-5 h-5" />
           <span>More</span>
         </button>
