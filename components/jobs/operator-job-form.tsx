@@ -156,12 +156,8 @@ function SuccessCard({ info, onReset }: { info: SuccessInfo; onReset: () => void
             {info.quantity.toLocaleString('en-IN')} {info.unit}
           </span>
         </div>
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Amount</span>
-          <span className="text-lg font-bold text-primary">{formatINR(info.amount)}</span>
-        </div>
         {info.batha > 0 && (
-          <div className="flex items-center justify-between border-t border-border pt-2 mt-1">
+          <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Batha ({info.bathaPaidBy === 'company' ? 'Company Paid' : 'Party Paid'})</span>
             <span className={info.bathaPaidBy === 'company' ? 'font-semibold text-destructive' : 'font-medium text-chart-5'}>
               +{formatINR(info.batha)}
