@@ -207,7 +207,7 @@ export function StaffForm({ defaultValues, onSuccess, currentUserId }: StaffForm
       address: defaultValues?.address ?? '',
       bloodGroup: defaultValues?.bloodGroup ?? '',
       designation: defaultValues?.designation ?? '',
-      baseSalary: defaultValues?.baseSalary ?? '',
+      baseSalary: defaultValues?.baseSalary ?? undefined,
     },
   })
 
