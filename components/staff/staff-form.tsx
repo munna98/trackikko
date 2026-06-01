@@ -193,7 +193,8 @@ export function StaffForm({ defaultValues, onSuccess, currentUserId }: StaffForm
   const schema = React.useMemo(() => getStaffSchema(isEdit), [isEdit])
 
   const form = useForm<StaffFormValues>({
-    resolver: zodResolver(schema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(schema) as any,
     defaultValues: {
       name: defaultValues?.name ?? '',
       email: defaultValues?.email ?? '',
