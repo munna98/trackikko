@@ -90,13 +90,15 @@ function SuccessCard({ info, onReset }: { info: SuccessInfo; onReset: () => void
 type OperatorAdvanceFormProps = {
   parties: SerialParty[]
   accounts: SerialAccount[]
+  defaultAccountId?: string | null
+  defaultPartyId?: string | null
 }
 
 function today() {
   return new Date().toISOString().split('T')[0]
 }
 
-export function OperatorAdvanceForm({ parties, accounts }: OperatorAdvanceFormProps) {
+export function OperatorAdvanceForm({ parties, accounts, defaultAccountId, defaultPartyId }: OperatorAdvanceFormProps) {
   const [step, setStep] = React.useState<Step>(1)
   const [successInfo, setSuccessInfo] = React.useState<SuccessInfo | null>(null)
 
@@ -104,10 +106,10 @@ export function OperatorAdvanceForm({ parties, accounts }: OperatorAdvanceFormPr
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(operatorAdvanceSchema) as any,
     defaultValues: {
-      partyId: '',
+      partyId: defaultPartyId || '',
       date: today(),
       amount: 0,
-      accountId: '',
+      accountId: defaultAccountId || '',
       notes: '',
     },
   })

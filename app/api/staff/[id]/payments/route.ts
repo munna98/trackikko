@@ -9,6 +9,7 @@ const createPaymentSchema = z.object({
   periodTo: z.string().min(1, 'Period to is required'),
   daysWorked: z.coerce.number().int().min(0, 'Days worked must be ≥ 0'),
   bathaTotal: z.coerce.number().min(0).default(0),
+  bathaJobIds: z.array(z.string()).default([]),
   salary: z.coerce.number().positive('Salary must be positive'),
   advancesDeducted: z.coerce.number().min(0).default(0),
   netPaid: z.coerce.number().min(0, 'Net paid must be ≥ 0'),
@@ -38,24 +39,45 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const from = url.searchParams.get('from')
     const to = url.searchParams.get('to')
 
-    // Suggest mode: return batha total for period + current advance balance
+    // Suggest mode: return unpaid batha jobs + advance balance
     if (from && to) {
-      const jobs = await prisma.job.findMany({
-        where: {
-          staffId,
-          businessId: user.businessId,
-          deletedAt: null,
-          date: { gte: new Date(from), lte: new Date(to) },
-        },
-        select: { batha: true, bathaPaidBy: true },
-      })
-      const bathaTotal = jobs
-        .filter((j) => j.bathaPaidBy === 'company')
-        .reduce((sum, j) => sum + j.batha.toNumber(), 0)
+      const [allUnpaidJobs, jobsInPeriod] = await Promise.all([
+        // All unpaid batha jobs (any date) for this staff
+        prisma.job.findMany({
+          where: {
+            staffId,
+            businessId: user.businessId,
+            deletedAt: null,
+            bathaPaidBy: 'company',
+            bathaPaid: false,
+          },
+          include: { site: { select: { name: true } } },
+          orderBy: { date: 'asc' },
+        }),
+        // Jobs in period (for daysWorked count)
+        prisma.job.findMany({
+          where: {
+            staffId,
+            businessId: user.businessId,
+            deletedAt: null,
+            date: { gte: new Date(from), lte: new Date(to) },
+          },
+          select: { id: true },
+        }),
+      ])
+
+      const periodJobIds = new Set(jobsInPeriod.map((j) => j.id))
+
       return NextResponse.json({
-        bathaTotal,
+        unpaidBathaJobs: allUnpaidJobs.map((j) => ({
+          id: j.id,
+          date: j.date.toISOString().split('T')[0],
+          siteName: j.site.name,
+          batha: j.batha.toNumber(),
+          inPeriod: periodJobIds.has(j.id),
+        })),
         advancesDeducted: staff.advanceBalance.toNumber(),
-        jobCount: jobs.length,
+        jobCount: jobsInPeriod.length,
       })
     }
 
@@ -120,6 +142,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       periodTo,
       daysWorked,
       bathaTotal,
+      bathaJobIds,
       salary,
       advancesDeducted,
       netPaid,
@@ -152,6 +175,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           recordedBy: user.id,
         },
       })
+
+      // Mark selected jobs' batha as paid and link to this payment
+      if (bathaJobIds.length > 0) {
+        await tx.job.updateMany({
+          where: {
+            id: { in: bathaJobIds },
+            staffId,
+            businessId,
+            bathaPaidBy: 'company',
+            bathaPaid: false,
+          },
+          data: {
+            bathaPaid: true,
+            bathaPaymentId: pay.id,
+          },
+        })
+      }
 
       // Deduct net paid from account
       await tx.account.update({

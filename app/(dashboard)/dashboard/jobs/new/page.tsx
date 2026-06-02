@@ -36,7 +36,13 @@ export default async function AdminNewJobPage() {
     }),
     prisma.user.findMany({
       where: { businessId, deletedAt: null, isActive: true },
-      select: { id: true, name: true, roleId: true },
+      select: {
+        id: true,
+        name: true,
+        roleId: true,
+        defaultMachineId: true,
+        defaultSiteId: true,
+      },
       orderBy: { name: 'asc' },
     }),
   ])
@@ -75,6 +81,8 @@ export default async function AdminNewJobPage() {
     id: s.id,
     name: s.name,
     roleId: s.roleId,
+    defaultMachineId: s.defaultMachineId ?? null,
+    defaultSiteId: s.defaultSiteId ?? null,
   }))
 
   return (

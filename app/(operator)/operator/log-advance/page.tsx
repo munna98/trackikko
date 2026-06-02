@@ -13,7 +13,7 @@ export default async function LogAdvancePage() {
 
   const businessId = user.businessId!
 
-  const [parties, accounts] = await Promise.all([
+  const [parties, accounts, dbUser] = await Promise.all([
     prisma.party.findMany({
       where: { businessId, deletedAt: null, isActive: true },
       select: { id: true, name: true },
@@ -23,6 +23,13 @@ export default async function LogAdvancePage() {
       where: { businessId, deletedAt: null, isActive: true },
       select: { id: true, name: true, type: true },
       orderBy: { name: 'asc' },
+    }),
+    prisma.user.findUnique({
+      where: { id: user.id },
+      select: { 
+        defaultAccountId: true,
+        defaultSite: { select: { partyId: true } }
+      },
     }),
   ])
 
@@ -53,6 +60,8 @@ export default async function LogAdvancePage() {
         <OperatorAdvanceForm
           parties={serialParties}
           accounts={serialAccounts}
+          defaultAccountId={dbUser?.defaultAccountId}
+          defaultPartyId={dbUser?.defaultSite?.partyId}
         />
       </div>
     </div>

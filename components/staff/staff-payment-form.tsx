@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { formatINR } from '@/lib/utils'
+import { BathaTileSelector, type UnpaidBathaJob } from '@/components/staff/batha-tile-selector'
 
 const paymentSchema = z.object({
   periodFrom: z.string().min(1, 'Period from is required'),
@@ -60,6 +61,10 @@ export function StaffPaymentForm({
   const [suggestLoading, setSuggestLoading] = React.useState(false)
   const [suggestInfo, setSuggestInfo] = React.useState<string | null>(null)
 
+  // Batha tile state
+  const [unpaidBathaJobs, setUnpaidBathaJobs] = React.useState<UnpaidBathaJob[]>([])
+  const [selectedBathaIds, setSelectedBathaIds] = React.useState<Set<string>>(new Set())
+
   const form = useForm<PaymentFormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(paymentSchema) as any,
@@ -76,7 +81,7 @@ export function StaffPaymentForm({
     },
   })
 
-  // Auto-fetch batha + advance suggestion when both period dates are set
+  // Auto-fetch unpaid batha jobs + advance suggestion when both period dates are set
   const watchedFrom = form.watch('periodFrom')
   const watchedTo = form.watch('periodTo')
 
@@ -91,16 +96,24 @@ export function StaffPaymentForm({
       .then((r) => (r.ok ? r.json() : null))
       .then(
         (data: {
-          bathaTotal: number
+          unpaidBathaJobs: UnpaidBathaJob[]
           advancesDeducted: number
           jobCount: number
         } | null) => {
           if (!data || cancelled) return
-          form.setValue('bathaTotal', data.bathaTotal)
+
+          setUnpaidBathaJobs(data.unpaidBathaJobs)
+
+          // Pre-select all jobs in the current period by default
+          const defaultSelected = new Set(
+            data.unpaidBathaJobs.filter((j) => j.inPeriod).map((j) => j.id),
+          )
+          setSelectedBathaIds(defaultSelected)
+
           form.setValue('advancesDeducted', data.advancesDeducted)
           form.setValue('daysWorked', data.jobCount)
           setSuggestInfo(
-            `${data.jobCount} job day(s) found — batha auto-filled from job records`,
+            `${data.jobCount} job day(s) found — batha pre-selected for this period`,
           )
         },
       )
@@ -112,6 +125,14 @@ export function StaffPaymentForm({
       cancelled = true
     }
   }, [watchedFrom, watchedTo, staffId, form])
+
+  // Keep bathaTotal in sync with selected tiles
+  React.useEffect(() => {
+    const total = unpaidBathaJobs
+      .filter((j) => selectedBathaIds.has(j.id))
+      .reduce((sum, j) => sum + j.batha, 0)
+    form.setValue('bathaTotal', total)
+  }, [selectedBathaIds, unpaidBathaJobs, form])
 
   // Auto-compute netPaid = salary + bathaTotal − advancesDeducted
   const watchedSalary = form.watch('salary')
@@ -136,7 +157,10 @@ export function StaffPaymentForm({
     const res = await fetch(`/api/staff/${staffId}/payments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(values),
+      body: JSON.stringify({
+        ...values,
+        bathaJobIds: Array.from(selectedBathaIds),
+      }),
     })
 
     if (!res.ok) {
@@ -236,6 +260,27 @@ export function StaffPaymentForm({
           </CardContent>
         </Card>
 
+        {/* ── Batha Tile Selector ─────────────────────────────── */}
+        {unpaidBathaJobs.length > 0 && (
+          <div className="space-y-2">
+            <BathaTileSelector
+              jobs={unpaidBathaJobs}
+              selectedIds={selectedBathaIds}
+              onChange={setSelectedBathaIds}
+            />
+            {/* Hidden bathaTotal kept in form state for display in summary */}
+          </div>
+        )}
+
+        {/* No unpaid batha info */}
+        {!suggestLoading && watchedFrom && watchedTo && watchedFrom <= watchedTo && unpaidBathaJobs.length === 0 && (
+          <div className="rounded-xl border border-border bg-muted/20 px-4 py-3">
+            <p className="text-sm text-muted-foreground">
+              No unpaid company batha jobs found for this staff member.
+            </p>
+          </div>
+        )}
+
         {/* ── Earnings ───────────────────────────────────────── */}
         <Card>
           <CardHeader className="pb-3">
@@ -289,7 +334,9 @@ export function StaffPaymentForm({
                       />
                     </FormControl>
                     <p className="text-xs text-muted-foreground">
-                      Auto-filled from job records in the period
+                      {unpaidBathaJobs.length > 0
+                        ? 'Auto-computed from selected tiles above'
+                        : 'Enter manually if needed'}
                     </p>
                     <FormMessage />
                   </FormItem>

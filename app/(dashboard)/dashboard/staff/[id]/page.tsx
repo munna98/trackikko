@@ -30,7 +30,16 @@ export default async function StaffDetailPage({ params }: PageProps) {
   const now = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
 
-  const [staffMember, advances, payments, accounts, jobsThisMonth] = await Promise.all([
+  const [
+    staffMember,
+    advances,
+    payments,
+    accounts,
+    jobsThisMonth,
+    unpaidBathaJobs,
+    machines,
+    sites,
+  ] = await Promise.all([
     prisma.user.findUnique({
       where: { id, deletedAt: null },
       include: { role: true },
@@ -59,6 +68,26 @@ export default async function StaffDetailPage({ params }: PageProps) {
       },
       select: { batha: true },
     }),
+    prisma.job.findMany({
+      where: {
+        staffId: id,
+        businessId,
+        deletedAt: null,
+        bathaPaidBy: 'company',
+        bathaPaid: false,
+      },
+      select: { batha: true },
+    }),
+    prisma.machine.findMany({
+      where: { businessId, deletedAt: null, isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.site.findMany({
+      where: { businessId, deletedAt: null, isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    }),
   ])
 
   if (!staffMember || staffMember.businessId !== businessId) notFound()
@@ -68,6 +97,13 @@ export default async function StaffDetailPage({ params }: PageProps) {
     (s: number, j: JobRow) => s + j.batha.toNumber(),
     0,
   )
+
+  type UnpaidJob = (typeof unpaidBathaJobs)[number]
+  const pendingBathaTotal = unpaidBathaJobs.reduce(
+    (s: number, j: UnpaidJob) => s + j.batha.toNumber(),
+    0,
+  )
+  const pendingBathaCount = unpaidBathaJobs.length
   const isSelf = id === user.id
 
   const ROLE_LABEL: Record<string, string> = {
@@ -107,6 +143,16 @@ export default async function StaffDetailPage({ params }: PageProps) {
     id: a.id,
     name: a.name,
     type: a.type as string,
+  }))
+
+  const serialisedMachines = machines.map((m) => ({
+    id: m.id,
+    name: m.name,
+  }))
+
+  const serialisedSites = sites.map((s) => ({
+    id: s.id,
+    name: s.name,
   }))
 
   return (
@@ -192,9 +238,16 @@ export default async function StaffDetailPage({ params }: PageProps) {
         advanceBalance={staffMember.advanceBalance.toNumber()}
         daysWorkedThisMonth={jobsThisMonth.length}
         bathaThisMonth={bathaThisMonth}
+        pendingBathaTotal={pendingBathaTotal}
+        pendingBathaCount={pendingBathaCount}
         advances={serialisedAdvances}
         payments={serialisedPayments}
         accounts={serialisedAccounts}
+        machines={serialisedMachines}
+        sites={serialisedSites}
+        defaultMachineId={staffMember.defaultMachineId}
+        defaultSiteId={staffMember.defaultSiteId}
+        defaultAccountId={staffMember.defaultAccountId}
       />
     </div>
   )

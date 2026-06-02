@@ -101,13 +101,14 @@ type OperatorExpenseFormProps = {
   categories: SerialCategory[]
   machines: SerialMachine[]
   accounts: SerialAccount[]
+  defaultAccountId?: string | null
 }
 
 function today() {
   return new Date().toISOString().split('T')[0]
 }
 
-export function OperatorExpenseForm({ categories, machines, accounts }: OperatorExpenseFormProps) {
+export function OperatorExpenseForm({ categories, machines, accounts, defaultAccountId }: OperatorExpenseFormProps) {
   const [step, setStep] = React.useState<Step>(1)
   const [successInfo, setSuccessInfo] = React.useState<SuccessInfo | null>(null)
 
@@ -119,7 +120,7 @@ export function OperatorExpenseForm({ categories, machines, accounts }: Operator
       machineId: null,
       date: today(),
       amount: 0,
-      accountId: '',
+      accountId: defaultAccountId || '',
       notes: '',
     },
   })

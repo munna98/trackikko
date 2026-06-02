@@ -112,6 +112,14 @@ model User {
   passwordHash       String?  @map("password_hash")
   mustChangePassword Boolean  @default(false) @map("must_change_password")
 
+  defaultMachineId   String?  @map("default_machine_id") @db.Uuid
+  defaultSiteId      String?  @map("default_site_id") @db.Uuid
+  defaultAccountId   String?  @map("default_account_id") @db.Uuid
+
+  defaultMachine Machine? @relation("UserDefaultMachine", fields: [defaultMachineId], references: [id])
+  defaultSite    Site?    @relation("UserDefaultSite", fields: [defaultSiteId], references: [id])
+  defaultAccount Account? @relation("UserDefaultAccount", fields: [defaultAccountId], references: [id])
+
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz
   deletedBy String?   @map("deleted_by")
 
@@ -214,6 +222,7 @@ model Machine {
   oilChangeLogs     OilChangeLog[]
   emiPayments       EmiPayment[]
   ledgerEntries     LedgerEntry[]
+  defaultForUsers   User[]             @relation("UserDefaultMachine")
 
   @@unique([businessId, identifier])
   @@index([businessId], map: "idx_machines_business_id")
@@ -289,6 +298,7 @@ model Account {
   partySettlements PartySettlement[]
   staffPayments    StaffPayment[]
   ledgerEntries    LedgerEntry[]
+  defaultForUsers  User[]            @relation("UserDefaultAccount")
 
   @@unique([businessId, name])
   @@index([businessId], map: "idx_accounts_business_id")
@@ -338,6 +348,7 @@ model Site {
   party     Party      @relation(fields: [partyId], references: [id])
   rateCards RateCard[]
   jobs      Job[]
+  defaultForUsers User[]     @relation("UserDefaultSite")
 
   @@index([businessId], map: "idx_sites_business_id")
   @@index([partyId], map: "idx_sites_party_id")
@@ -407,6 +418,8 @@ model Job {
   amount         Decimal      @db.Decimal
   batha          Decimal      @default(0) @db.Decimal
   bathaPaidBy    BathaPaidBy  @default(party) @map("batha_paid_by")
+  bathaPaid      Boolean      @default(false) @map("batha_paid")
+  bathaPaymentId String?      @map("batha_payment_id") @db.Uuid
   isReviewed     Boolean      @default(false) @map("is_reviewed")
   recordedBy     String?      @map("recorded_by")
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
@@ -414,11 +427,12 @@ model Job {
   deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz
   deletedBy      String?      @map("deleted_by")
 
-  business Business @relation(fields: [businessId], references: [id])
-  machine  Machine  @relation(fields: [machineId], references: [id])
-  staff    User     @relation("OperatorJobs", fields: [staffId], references: [id])
-  site     Site     @relation(fields: [siteId], references: [id])
-  recorder User?    @relation("JobRecorder", fields: [recordedBy], references: [id])
+  business      Business      @relation(fields: [businessId], references: [id])
+  machine       Machine       @relation(fields: [machineId], references: [id])
+  staff         User          @relation("OperatorJobs", fields: [staffId], references: [id])
+  site          Site          @relation(fields: [siteId], references: [id])
+  recorder      User?         @relation("JobRecorder", fields: [recordedBy], references: [id])
+  bathaPayment  StaffPayment? @relation("BathaSettledJobs", fields: [bathaPaymentId], references: [id])
 
   @@index([businessId], map: "idx_jobs_business_id")
   @@index([machineId], map: "idx_jobs_machine_id")
@@ -602,10 +616,11 @@ model StaffPayment {
   deletedAt        DateTime? @map("deleted_at") @db.Timestamptz
   deletedBy        String?   @map("deleted_by")
 
-  business Business @relation(fields: [businessId], references: [id])
-  staff    User     @relation("StaffPaymentStaff", fields: [staffId], references: [id])
-  account  Account  @relation(fields: [accountId], references: [id])
-  recorder User?    @relation("StaffPaymentRecorder", fields: [recordedBy], references: [id])
+  business   Business @relation(fields: [businessId], references: [id])
+  staff      User     @relation("StaffPaymentStaff", fields: [staffId], references: [id])
+  account    Account  @relation(fields: [accountId], references: [id])
+  recorder   User?    @relation("StaffPaymentRecorder", fields: [recordedBy], references: [id])
+  bathaJobs  Job[]    @relation("BathaSettledJobs")
 
   @@index([staffId], map: "idx_staff_payments_staff_id")
   @@map("staff_payments")

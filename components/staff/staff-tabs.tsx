@@ -2,12 +2,20 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Banknote, Receipt, Plus } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Banknote, Receipt, Plus, Settings, Check, Loader2 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { SalaryAdvanceDialog } from '@/components/staff/salary-advance-dialog'
 import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { formatINR, formatDate } from '@/lib/utils'
 
 type AccountOption = { id: string; name: string; type: string }
@@ -40,10 +48,17 @@ type StaffTabsProps = {
   advanceBalance: number
   daysWorkedThisMonth: number
   bathaThisMonth: number
+  pendingBathaTotal: number
+  pendingBathaCount: number
   // Tab data
   advances: SalaryAdvanceRow[]
   payments: StaffPaymentRow[]
   accounts: AccountOption[]
+  machines: { id: string; name: string }[]
+  sites: { id: string; name: string }[]
+  defaultMachineId: string | null
+  defaultSiteId: string | null
+  defaultAccountId: string | null
 }
 
 export function StaffTabs({
@@ -52,10 +67,62 @@ export function StaffTabs({
   advanceBalance,
   daysWorkedThisMonth,
   bathaThisMonth,
+  pendingBathaTotal,
+  pendingBathaCount,
   advances,
   payments,
   accounts,
+  machines,
+  sites,
+  defaultMachineId,
+  defaultSiteId,
+  defaultAccountId,
 }: StaffTabsProps) {
+  const router = useRouter()
+  const [selectedMachineId, setSelectedMachineId] = React.useState<string>(defaultMachineId || 'none')
+  const [selectedSiteId, setSelectedSiteId] = React.useState<string>(defaultSiteId || 'none')
+  const [selectedAccountId, setSelectedAccountId] = React.useState<string>(defaultAccountId || 'none')
+  const [isSaving, setIsSaving] = React.useState(false)
+  const [saveSuccess, setSaveSuccess] = React.useState(false)
+  const [saveError, setSaveError] = React.useState<string | null>(null)
+
+  // Sync state if props change
+  React.useEffect(() => {
+    setSelectedMachineId(defaultMachineId || 'none')
+    setSelectedSiteId(defaultSiteId || 'none')
+    setSelectedAccountId(defaultAccountId || 'none')
+  }, [defaultMachineId, defaultSiteId, defaultAccountId])
+
+  async function handleSaveDefaults() {
+    setIsSaving(true)
+    setSaveSuccess(false)
+    setSaveError(null)
+    try {
+      const res = await fetch(`/api/staff/${staffId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          defaultMachineId: selectedMachineId === 'none' ? null : selectedMachineId,
+          defaultSiteId: selectedSiteId === 'none' ? null : selectedSiteId,
+          defaultAccountId: selectedAccountId === 'none' ? null : selectedAccountId,
+        }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to save defaults')
+      }
+
+      setSaveSuccess(true)
+      router.refresh()
+      setTimeout(() => setSaveSuccess(false), 3000)
+    } catch (err: any) {
+      setSaveError(err.message || 'Something went wrong')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   return (
     <Tabs defaultValue="overview" className="flex-col">
       <TabsList className="w-full h-auto flex-wrap justify-start gap-0.5 p-1">
@@ -76,9 +143,12 @@ export function StaffTabs({
             </span>
           )}
         </TabsTrigger>
+        <TabsTrigger value="defaults" className="flex items-center gap-1.5">
+          <Settings className="w-3.5 h-3.5" />
+          Defaults
+        </TabsTrigger>
       </TabsList>
 
-      {/* ── Overview ─────────────────────────────────────────── */}
       <TabsContent value="overview">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <Card
@@ -117,16 +187,49 @@ export function StaffTabs({
               <p className="text-xs text-muted-foreground">jobs this month</p>
             </CardContent>
           </Card>
-        </div>
 
-        {bathaThisMonth > 0 && (
-          <div className="rounded-2xl border border-border bg-card p-4">
-            <p className="text-sm text-muted-foreground">Batha Earned This Month</p>
-            <p className="text-2xl font-bold text-foreground mt-1">
-              {formatINR(bathaThisMonth)}
-            </p>
-          </div>
-        )}
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs text-muted-foreground uppercase tracking-wide">
+                Batha Earned (Month)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xl font-bold text-foreground">
+                {formatINR(bathaThisMonth)}
+              </p>
+              <p className="text-xs text-muted-foreground">earned this month</p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className={
+              pendingBathaTotal > 0
+                ? 'border-orange-200 dark:border-orange-800/30 bg-orange-50/50 dark:bg-orange-900/10'
+                : ''
+            }
+          >
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs text-muted-foreground uppercase tracking-wide">
+                Total Pending Batha
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p
+                className={`text-xl font-bold ${
+                  pendingBathaTotal > 0
+                    ? 'text-orange-700 dark:text-orange-400'
+                    : 'text-foreground'
+                }`}
+              >
+                {formatINR(pendingBathaTotal)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {pendingBathaCount} unpaid job{pendingBathaCount !== 1 ? 's' : ''}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       </TabsContent>
 
       {/* ── Advances ─────────────────────────────────────────── */}
@@ -323,6 +426,121 @@ export function StaffTabs({
             </div>
           )}
         </div>
+      </TabsContent>
+
+      {/* ── Defaults ─────────────────────────────────────────── */}
+      <TabsContent value="defaults">
+        <Card className="max-w-2xl border-border bg-card">
+          <CardHeader>
+            <CardTitle className="text-lg font-bold flex items-center gap-2">
+              <Settings className="w-5 h-5 text-primary" />
+              Default Job Settings
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Configure default options for this staff member. 
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-6 pt-2">
+            <div className="space-y-4">
+              {/* Default Machine Selection */}
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-foreground">Default Machine</label>
+                <Select value={selectedMachineId} onValueChange={setSelectedMachineId}>
+                  <SelectTrigger className="w-full min-h-[48px]">
+                    <SelectValue placeholder="Select a default machine" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none" className="min-h-[40px] text-muted-foreground italic">
+                      — No Default Machine —
+                    </SelectItem>
+                    {machines.map((m) => (
+                      <SelectItem key={m.id} value={m.id} className="min-h-[40px]">
+                        {m.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  The primary machine operated by this staff member.
+                </p>
+              </div>
+
+              {/* Default Site Selection */}
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-foreground">Default Site</label>
+                <Select value={selectedSiteId} onValueChange={setSelectedSiteId}>
+                  <SelectTrigger className="w-full min-h-[48px]">
+                    <SelectValue placeholder="Select a default site" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none" className="min-h-[40px] text-muted-foreground italic">
+                      — No Default Site —
+                    </SelectItem>
+                    {sites.map((s) => (
+                      <SelectItem key={s.id} value={s.id} className="min-h-[40px]">
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  The primary work site assigned to this staff member.
+                </p>
+              </div>
+
+              {/* Default Account Selection */}
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-foreground">Default Account</label>
+                <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                  <SelectTrigger className="w-full min-h-[48px]">
+                    <SelectValue placeholder="Select a default account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none" className="min-h-[40px] text-muted-foreground italic">
+                      — No Default Account —
+                    </SelectItem>
+                    {accounts.map((a) => (
+                      <SelectItem key={a.id} value={a.id} className="min-h-[40px]">
+                        {a.name} ({a.type})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  The primary account for this staff member's expenses and advances.
+                </p>
+              </div>
+            </div>
+
+            {saveError && (
+              <p className="text-sm text-destructive font-medium bg-destructive/10 p-3 rounded-lg">
+                ⚠️ {saveError}
+              </p>
+            )}
+
+            <div className="flex items-center gap-3 pt-2">
+              <Button
+                onClick={handleSaveDefaults}
+                disabled={isSaving}
+                className="font-semibold min-h-[48px] px-6 transition-all"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : saveSuccess ? (
+                  <>
+                    <Check className="mr-2 h-4 w-4 stroke-[3px]" />
+                    Saved!
+                  </>
+                ) : (
+                  'Save Defaults'
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </TabsContent>
     </Tabs>
   )

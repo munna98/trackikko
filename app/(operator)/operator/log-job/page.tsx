@@ -62,6 +62,11 @@ export default async function LogJobPage() {
     rate: rc.rate.toNumber(),
   }))
 
+  const userFull = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { defaultMachineId: true, defaultSiteId: true },
+  })
+
   return (
     <div className="max-w-lg mx-auto">
       <div className="mb-6">
@@ -76,6 +81,8 @@ export default async function LogJobPage() {
           machines={serialMachines}
           sites={serialSites}
           rateCards={serialRateCards}
+          defaultMachineId={userFull?.defaultMachineId ?? null}
+          defaultSiteId={userFull?.defaultSiteId ?? null}
         />
       </div>
     </div>

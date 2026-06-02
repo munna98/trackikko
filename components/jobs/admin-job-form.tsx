@@ -37,6 +37,8 @@ export type SerialStaff = {
   id: string
   name: string
   roleId: string
+  defaultMachineId: string | null
+  defaultSiteId: string | null
 }
 
 const adminJobSchema = z
@@ -101,10 +103,26 @@ export function AdminJobForm({ machines, sites, rateCards, staff }: AdminJobForm
 
   const { isSubmitting, errors } = form.formState
 
+  const watchedStaffId = form.watch('staffId')
   const watchedMachineId = form.watch('machineId')
   const watchedSiteId = form.watch('siteId')
   const watchedMode = form.watch('mode')
   const watchedActualRate = form.watch('actualRate')
+
+  // Auto-fill defaults when selected staff changes
+  React.useEffect(() => {
+    if (watchedStaffId) {
+      const selectedStaff = staff.find((s) => s.id === watchedStaffId)
+      if (selectedStaff) {
+        if (selectedStaff.defaultMachineId) {
+          form.setValue('machineId', selectedStaff.defaultMachineId)
+        }
+        if (selectedStaff.defaultSiteId) {
+          form.setValue('siteId', selectedStaff.defaultSiteId)
+        }
+      }
+    }
+  }, [watchedStaffId, staff, form])
 
   const selectedMachine = machines.find((m) => m.id === watchedMachineId)
   const selectedSite = sites.find((s) => s.id === watchedSiteId)

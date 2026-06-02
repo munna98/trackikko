@@ -13,7 +13,7 @@ export default async function LogExpensePage() {
 
   const businessId = user.businessId!
 
-  const [categories, machines, accounts] = await Promise.all([
+  const [categories, machines, accounts, dbUser] = await Promise.all([
     prisma.expenseCategory.findMany({
       where: {
         OR: [{ businessId }, { businessId: null }],
@@ -29,6 +29,10 @@ export default async function LogExpensePage() {
     prisma.account.findMany({
       where: { businessId, deletedAt: null, isActive: true },
       orderBy: { name: 'asc' },
+    }),
+    prisma.user.findUnique({
+      where: { id: user.id },
+      select: { defaultAccountId: true },
     }),
   ])
 
@@ -67,6 +71,7 @@ export default async function LogExpensePage() {
           categories={serialCategories}
           machines={serialMachines}
           accounts={serialAccounts}
+          defaultAccountId={dbUser?.defaultAccountId}
         />
       </div>
     </div>

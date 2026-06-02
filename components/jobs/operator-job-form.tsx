@@ -183,13 +183,21 @@ type OperatorJobFormProps = {
   machines: SerialMachine[]
   sites: SerialSite[]
   rateCards: SerialRateCard[]
+  defaultMachineId?: string | null
+  defaultSiteId?: string | null
 }
 
 function today() {
   return new Date().toISOString().split('T')[0]
 }
 
-export function OperatorJobForm({ machines, sites, rateCards }: OperatorJobFormProps) {
+export function OperatorJobForm({
+  machines,
+  sites,
+  rateCards,
+  defaultMachineId,
+  defaultSiteId,
+}: OperatorJobFormProps) {
   const [step, setStep] = React.useState<Step>(1)
   const [successInfo, setSuccessInfo] = React.useState<SuccessInfo | null>(null)
 
@@ -198,9 +206,9 @@ export function OperatorJobForm({ machines, sites, rateCards }: OperatorJobFormP
     resolver: zodResolver(operatorJobSchema) as any,
     defaultValues: {
       date: today(),
-      machineId: '',
+      machineId: defaultMachineId || '',
       mode: null,
-      siteId: '',
+      siteId: defaultSiteId || '',
       startReading: null,
       closingReading: null,
       tripCount: null,
