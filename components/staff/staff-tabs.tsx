@@ -446,15 +446,15 @@ export function StaffTabs({
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground">Default Machine</label>
                 <Select value={selectedMachineId} onValueChange={setSelectedMachineId}>
-                  <SelectTrigger className="w-full min-h-[48px]">
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select a default machine" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none" className="min-h-[40px] text-muted-foreground italic">
+                    <SelectItem value="none" className=" text-muted-foreground italic">
                       — No Default Machine —
                     </SelectItem>
                     {machines.map((m) => (
-                      <SelectItem key={m.id} value={m.id} className="min-h-[40px]">
+                      <SelectItem key={m.id} value={m.id} >
                         {m.name}
                       </SelectItem>
                     ))}
@@ -469,15 +469,15 @@ export function StaffTabs({
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground">Default Site</label>
                 <Select value={selectedSiteId} onValueChange={setSelectedSiteId}>
-                  <SelectTrigger className="w-full min-h-[48px]">
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select a default site" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none" className="min-h-[40px] text-muted-foreground italic">
+                    <SelectItem value="none" className=" text-muted-foreground italic">
                       — No Default Site —
                     </SelectItem>
                     {sites.map((s) => (
-                      <SelectItem key={s.id} value={s.id} className="min-h-[40px]">
+                      <SelectItem key={s.id} value={s.id} className="">
                         {s.name}
                       </SelectItem>
                     ))}
@@ -492,15 +492,15 @@ export function StaffTabs({
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground">Default Account</label>
                 <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-                  <SelectTrigger className="w-full min-h-[48px]">
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select a default account" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none" className="min-h-[40px] text-muted-foreground italic">
+                    <SelectItem value="none" className=" text-muted-foreground italic">
                       — No Default Account —
                     </SelectItem>
                     {accounts.map((a) => (
-                      <SelectItem key={a.id} value={a.id} className="min-h-[40px]">
+                      <SelectItem key={a.id} value={a.id} className="">
                         {a.name} ({a.type})
                       </SelectItem>
                     ))}
@@ -518,11 +518,11 @@ export function StaffTabs({
               </p>
             )}
 
-            <div className="flex items-center gap-3 pt-2">
+            <div className="flex items-center gap-3">
               <Button
                 onClick={handleSaveDefaults}
                 disabled={isSaving}
-                className="font-semibold min-h-[48px] px-6 transition-all"
+                className="font-semibold px-6 transition-all"
               >
                 {isSaving ? (
                   <>

@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { MapPin, Tag, BookOpen, CheckCircle, Pencil } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -363,6 +364,7 @@ export function PartyTabs({
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Amount</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Account</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Notes</th>
+                    {isAdmin && <th className="px-4 py-3" />}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -372,6 +374,18 @@ export function PartyTabs({
                       <td className="px-4 py-3 font-semibold text-foreground">{formatINR(a.amount)}</td>
                       <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">{a.accountName}</td>
                       <td className="px-4 py-3 text-muted-foreground hidden md:table-cell max-w-xs truncate">{a.notes ?? '—'}</td>
+                      {isAdmin && (
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2 justify-end">
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0" asChild>
+                              <Link href={`/dashboard/party-advances/${a.id}/edit`}>
+                                <Pencil className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                                <span className="sr-only">Edit</span>
+                              </Link>
+                            </Button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -379,7 +393,7 @@ export function PartyTabs({
                   <tr>
                     <td className="px-4 py-2.5 text-xs font-medium text-muted-foreground">Total ({advances.length})</td>
                     <td className="px-4 py-2.5 font-bold text-foreground">{formatINR(advances.reduce((s, r) => s + r.amount, 0))}</td>
-                    <td colSpan={2} className="hidden md:table-cell" />
+                    <td colSpan={isAdmin ? 3 : 2} className="hidden md:table-cell" />
                   </tr>
                 </tfoot>
               </table>

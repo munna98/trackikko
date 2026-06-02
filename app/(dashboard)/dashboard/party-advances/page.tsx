@@ -23,6 +23,7 @@ export default async function PartyAdvancesPage({ searchParams }: PageProps) {
   const partyId = typeof resolvedParams.partyId === 'string' ? resolvedParams.partyId : undefined
   const from = typeof resolvedParams.from === 'string' ? resolvedParams.from : undefined
   const to = typeof resolvedParams.to === 'string' ? resolvedParams.to : undefined
+  const status = typeof resolvedParams.status === 'string' ? resolvedParams.status : undefined
 
   const [advances, parties, accounts] = await Promise.all([
     prisma.partyAdvance.findMany({
@@ -36,6 +37,8 @@ export default async function PartyAdvancesPage({ searchParams }: PageProps) {
             lte: new Date(to),
           },
         }),
+        ...(status === 'reviewed' && { isReviewed: true }),
+        ...(status === 'unreviewed' && { isReviewed: false }),
       },
       include: {
         party: { select: { name: true } },
@@ -65,6 +68,7 @@ export default async function PartyAdvancesPage({ searchParams }: PageProps) {
     amount: a.amount.toNumber(),
     accountName: a.account.name,
     notes: a.notes,
+    isReviewed: a.isReviewed,
   }))
 
   const partyOptions = parties.map((p) => ({ id: p.id, name: p.name }))
@@ -98,6 +102,7 @@ export default async function PartyAdvancesPage({ searchParams }: PageProps) {
         currentPartyId={partyId}
         currentFrom={from}
         currentTo={to}
+        currentStatus={status}
         isAdmin={isAdmin}
       />
     </div>
