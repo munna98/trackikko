@@ -29,6 +29,8 @@ export default async function DashboardPage() {
     revenueThisMonth,
     expensesThisMonth,
     recentJobs,
+    recentExpenses,
+    recentAdvances,
   ] = await Promise.all([
     prisma.machine.count({ where: { businessId, deletedAt: null } }),
     prisma.user.count({ where: { businessId, deletedAt: null, roleId: { not: 'master_admin' } } }),
@@ -54,6 +56,22 @@ export default async function DashboardPage() {
       include: {
         machine: { select: { name: true } },
         site: { include: { party: { select: { name: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    }),
+    prisma.expense.findMany({
+      where: { businessId, deletedAt: null },
+      include: {
+        expenseCategory: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    }),
+    prisma.partyAdvance.findMany({
+      where: { businessId, deletedAt: null },
+      include: {
+        party: { select: { name: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: 5,
@@ -110,13 +128,54 @@ export default async function DashboardPage() {
   ]
 
   type RecentJob = (typeof recentJobs)[number]
-  const serialRecentJobs = recentJobs.map((j: RecentJob) => ({
-    id: j.id,
-    machineName: j.machine.name,
-    partyName: j.site.party.name,
-    amount: j.amount.toNumber(),
-    date: j.date.toISOString(),
-  }))
+  type RecentExpense = (typeof recentExpenses)[number]
+  type RecentAdvance = (typeof recentAdvances)[number]
+
+  type ActivityItem = {
+    id: string
+    type: 'job' | 'expense' | 'advance'
+    title: string
+    subtitle: string
+    amount: number
+    date: Date
+    createdAt: Date
+    link: string
+  }
+
+  const activities: ActivityItem[] = [
+    ...recentJobs.map((j: RecentJob) => ({
+      id: `job-${j.id}`,
+      type: 'job' as const,
+      title: j.machine.name,
+      subtitle: `Job • ${j.site.party.name}`,
+      amount: j.amount.toNumber(),
+      date: j.date,
+      createdAt: j.createdAt,
+      link: `/dashboard/jobs/${j.id}`,
+    })),
+    ...recentExpenses.map((e: RecentExpense) => ({
+      id: `exp-${e.id}`,
+      type: 'expense' as const,
+      title: e.expenseCategory.name,
+      subtitle: 'Expense',
+      amount: -e.amount.toNumber(),
+      date: e.date,
+      createdAt: e.createdAt,
+      link: `/dashboard/expenses`,
+    })),
+    ...recentAdvances.map((a: RecentAdvance) => ({
+      id: `adv-${a.id}`,
+      type: 'advance' as const,
+      title: a.party.name,
+      subtitle: 'Advance Received',
+      amount: a.amount.toNumber(),
+      date: a.date,
+      createdAt: a.createdAt,
+      link: `/dashboard/parties/${a.partyId}`,
+    })),
+  ]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 5)
 
   return (
     <div className="space-y-6">
@@ -150,37 +209,47 @@ export default async function DashboardPage() {
           <div className="flex items-center gap-2 mb-4">
             <Activity className="w-4 h-4 text-primary" />
             <h2 className="font-semibold text-sm text-card-foreground">Recent Activity</h2>
-            {serialRecentJobs.length > 0 && (
-              <Link href="/dashboard/jobs" className="ml-auto text-xs text-primary hover:underline">
-                View all
-              </Link>
-            )}
           </div>
-          {serialRecentJobs.length === 0 ? (
+          {activities.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 rounded-xl bg-muted">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground/40">
                 <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
                 <rect x="9" y="3" width="6" height="4" rx="1" />
                 <line x1="9" y1="12" x2="15" y2="12" /><line x1="9" y1="16" x2="12" y2="16" />
               </svg>
-              <p className="text-sm mt-3 text-muted-foreground">Start logging jobs to see activity here</p>
+              <p className="text-sm mt-3 text-muted-foreground">Start logging activity to see it here</p>
             </div>
           ) : (
             <ul className="space-y-2">
-              {serialRecentJobs.map((job) => (
-                <li key={job.id}>
+              {activities.map((activity) => (
+                <li key={activity.id}>
                   <Link
-                    href={`/dashboard/jobs/${job.id}`}
+                    href={activity.link}
                     className="flex items-center justify-between p-3 rounded-xl bg-muted hover:bg-accent transition-colors"
                   >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{job.machineName}</p>
-                      <p className="text-xs text-muted-foreground">{job.partyName}</p>
+                    <div className="min-w-0 flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        activity.type === 'job' ? 'bg-primary/10 text-primary' : 
+                        activity.type === 'expense' ? 'bg-destructive/10 text-destructive' : 
+                        'bg-chart-2/10 text-chart-2'
+                      }`}>
+                        {activity.type === 'job' && <ClipboardList className="w-4 h-4" />}
+                        {activity.type === 'expense' && <Receipt className="w-4 h-4" />}
+                        {activity.type === 'advance' && <Wallet className="w-4 h-4" />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{activity.title}</p>
+                        <p className="text-xs text-muted-foreground">{activity.subtitle}</p>
+                      </div>
                     </div>
                     <div className="text-right flex-shrink-0 ml-3">
-                      <p className="text-sm font-semibold text-foreground">{formatINR(job.amount)}</p>
+                      <p className={`text-sm font-semibold ${
+                        activity.type === 'expense' ? 'text-destructive' : 'text-foreground'
+                      }`}>
+                        {activity.type === 'expense' ? '-' : '+'}{formatINR(Math.abs(activity.amount))}
+                      </p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(job.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                        {new Date(activity.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                       </p>
                     </div>
                   </Link>

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Truck, Users, Building2, ClipboardList, Receipt, BarChart3, Settings, LogOut } from 'lucide-react'
+import { LayoutDashboard, Truck, Users, Building2, ClipboardList, Receipt, BarChart3, Settings, LogOut, Banknote } from 'lucide-react'
 import { signOut } from '@/lib/auth'
 import { getInitials } from '@/lib/utils'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -14,6 +14,7 @@ const navItems = [
   { href: '/dashboard/machines', icon: Truck, label: 'Machines' },
   { href: '/dashboard/staff', icon: Users, label: 'Staff' },
   { href: '/dashboard/parties', icon: Building2, label: 'Parties & Sites' },
+  { href: '/dashboard/party-advances', icon: Banknote, label: 'Party Advances' },
   { href: '/dashboard/jobs', icon: ClipboardList, label: 'Jobs' },
   { href: '/dashboard/expenses', icon: Receipt, label: 'Expenses' },
   { href: '/dashboard/reports', icon: BarChart3, label: 'Reports' },

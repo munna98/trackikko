@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, ClipboardList, Receipt, Users, MoreHorizontal, Truck, Building2, BarChart3, Settings, X } from 'lucide-react'
+import { LayoutDashboard, ClipboardList, Receipt, Users, MoreHorizontal, Truck, Building2, BarChart3, Settings, X, Banknote } from 'lucide-react'
 
 const primaryNav = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -15,6 +15,7 @@ const primaryNav = [
 const moreNav = [
   { href: '/dashboard/machines', icon: Truck, label: 'Machines' },
   { href: '/dashboard/parties', icon: Building2, label: 'Parties & Sites' },
+  { href: '/dashboard/party-advances', icon: Banknote, label: 'Party Advances' },
   { href: '/dashboard/reports', icon: BarChart3, label: 'Reports' },
   { href: '/dashboard/settings', icon: Settings, label: 'Settings' },
 ]
