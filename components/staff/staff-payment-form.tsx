@@ -49,6 +49,19 @@ type StaffPaymentFormProps = {
   advanceBalance: number
   baseSalary?: number
   accounts: AccountOption[]
+  // Edit mode: pre-filled payment data
+  editPayment?: {
+    id: string
+    periodFrom: string
+    periodTo: string
+    daysWorked: number
+    bathaTotal: number
+    salary: number
+    advancesDeducted: number
+    netPaid: number
+    accountId: string
+    notes: string | null
+  }
 }
 
 export function StaffPaymentForm({
@@ -56,8 +69,10 @@ export function StaffPaymentForm({
   advanceBalance,
   baseSalary,
   accounts,
+  editPayment,
 }: StaffPaymentFormProps) {
   const router = useRouter()
+  const isEditing = !!editPayment
   const [suggestLoading, setSuggestLoading] = React.useState(false)
   const [suggestInfo, setSuggestInfo] = React.useState<string | null>(null)
 
@@ -68,17 +83,29 @@ export function StaffPaymentForm({
   const form = useForm<PaymentFormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(paymentSchema) as any,
-    defaultValues: {
-      periodFrom: '',
-      periodTo: '',
-      daysWorked: 0,
-      bathaTotal: 0,
-      salary: baseSalary ?? undefined,
-      advancesDeducted: advanceBalance,
-      netPaid: 0,
-      accountId: '',
-      notes: '',
-    },
+    defaultValues: isEditing
+      ? {
+          periodFrom: editPayment.periodFrom,
+          periodTo: editPayment.periodTo,
+          daysWorked: editPayment.daysWorked,
+          bathaTotal: editPayment.bathaTotal,
+          salary: editPayment.salary,
+          advancesDeducted: editPayment.advancesDeducted,
+          netPaid: editPayment.netPaid,
+          accountId: editPayment.accountId,
+          notes: editPayment.notes ?? '',
+        }
+      : {
+          periodFrom: '',
+          periodTo: '',
+          daysWorked: 0,
+          bathaTotal: 0,
+          salary: baseSalary ?? undefined,
+          advancesDeducted: advanceBalance,
+          netPaid: 0,
+          accountId: '',
+          notes: '',
+        },
   })
 
   // Auto-fetch unpaid batha jobs + advance suggestion when both period dates are set
@@ -86,6 +113,7 @@ export function StaffPaymentForm({
   const watchedTo = form.watch('periodTo')
 
   React.useEffect(() => {
+    // In edit mode, don't auto-suggest on initial render (only when dates change)
     if (!watchedFrom || !watchedTo || watchedFrom > watchedTo) return
 
     let cancelled = false
@@ -110,8 +138,11 @@ export function StaffPaymentForm({
           )
           setSelectedBathaIds(defaultSelected)
 
-          form.setValue('advancesDeducted', data.advancesDeducted)
-          form.setValue('daysWorked', data.jobCount)
+          // In edit mode, don't overwrite user-filled advance/days values on initial load
+          if (!isEditing) {
+            form.setValue('advancesDeducted', data.advancesDeducted)
+            form.setValue('daysWorked', data.jobCount)
+          }
           setSuggestInfo(
             `${data.jobCount} job day(s) found — batha pre-selected for this period`,
           )
@@ -124,10 +155,12 @@ export function StaffPaymentForm({
     return () => {
       cancelled = true
     }
-  }, [watchedFrom, watchedTo, staffId, form])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedFrom, watchedTo, staffId])
 
-  // Keep bathaTotal in sync with selected tiles
+  // Keep bathaTotal in sync with selected tiles (only when tiles are shown)
   React.useEffect(() => {
+    if (unpaidBathaJobs.length === 0) return
     const total = unpaidBathaJobs
       .filter((j) => selectedBathaIds.has(j.id))
       .reduce((sum, j) => sum + j.batha, 0)
@@ -154,21 +187,39 @@ export function StaffPaymentForm({
       return
     }
 
-    const res = await fetch(`/api/staff/${staffId}/payments`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...values,
-        bathaJobIds: Array.from(selectedBathaIds),
-      }),
-    })
-
-    if (!res.ok) {
-      const data = (await res.json()) as { error?: string }
-      form.setError('root', {
-        message: data.error ?? 'Something went wrong',
+    if (isEditing) {
+      // PATCH existing payment
+      const res = await fetch(`/api/staff/${staffId}/payments/${editPayment.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values),
       })
-      return
+
+      if (!res.ok) {
+        const data = (await res.json()) as { error?: string }
+        form.setError('root', {
+          message: data.error ?? 'Something went wrong',
+        })
+        return
+      }
+    } else {
+      // POST new payment
+      const res = await fetch(`/api/staff/${staffId}/payments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...values,
+          bathaJobIds: Array.from(selectedBathaIds),
+        }),
+      })
+
+      if (!res.ok) {
+        const data = (await res.json()) as { error?: string }
+        form.setError('root', {
+          message: data.error ?? 'Something went wrong',
+        })
+        return
+      }
     }
 
     router.push(`/dashboard/staff/${staffId}`)
@@ -308,7 +359,7 @@ export function StaffPaymentForm({
                         value={field.value ?? ''}
                       />
                     </FormControl>
-                    {baseSalary && (
+                    {baseSalary && !isEditing && (
                       <p className="text-xs text-muted-foreground">
                         Pre-filled from staff profile (₹{baseSalary.toLocaleString('en-IN')})
                       </p>
@@ -371,7 +422,7 @@ export function StaffPaymentForm({
                     />
                   </FormControl>
                   <p className="text-xs text-muted-foreground">
-                    Pre-filled from current advance balance
+                    {isEditing ? 'Edit the advance deduction amount' : 'Pre-filled from current advance balance'}
                   </p>
                   <FormMessage />
                 </FormItem>
@@ -530,7 +581,7 @@ export function StaffPaymentForm({
                 disabled={isSubmitting || accounts.length === 0}
               >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Record Payment
+                {isEditing ? 'Save Changes' : 'Record Payment'}
               </Button>
             </div>
           </div>
