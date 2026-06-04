@@ -10,10 +10,10 @@ const createStaffSchema = z.object({
   email: z.string().email('Enter a valid email').optional().or(z.literal('')),
   roleId: z.enum(['admin', 'accountant', 'operator']),
   password: z.string().min(1, 'Password or PIN is required'),
-  mobile: z.string().optional(),
-  address: z.string().optional(),
-  bloodGroup: z.string().optional(),
-  designation: z.string().optional(),
+  mobile: z.string().nullish(),
+  address: z.string().nullish(),
+  bloodGroup: z.string().nullish(),
+  designation: z.string().nullish(),
   baseSalary: z.coerce.number().positive().optional().nullable(),
 })
 
