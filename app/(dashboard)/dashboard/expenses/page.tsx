@@ -27,6 +27,7 @@ export default async function ExpensesPage({ searchParams }: PageProps) {
   const staffId = typeof resolvedParams.staffId === 'string' ? resolvedParams.staffId : undefined
   const from = typeof resolvedParams.from === 'string' ? resolvedParams.from : undefined
   const to = typeof resolvedParams.to === 'string' ? resolvedParams.to : undefined
+  const status = typeof resolvedParams.status === 'string' ? resolvedParams.status : undefined
 
   const [expenses, categories, machines, staff] = await Promise.all([
     prisma.expense.findMany({
@@ -42,6 +43,8 @@ export default async function ExpensesPage({ searchParams }: PageProps) {
             lte: new Date(to),
           }
         }),
+        ...(status === 'reviewed' && { isReviewed: true }),
+        ...(status === 'unreviewed' && { isReviewed: false }),
         ...(!isAdmin && { recordedBy: user.id }),
       },
       include: {
@@ -88,6 +91,7 @@ export default async function ExpensesPage({ searchParams }: PageProps) {
     notes: e.notes,
     recordedBy: e.recordedBy,
     recorderName: e.recorder?.name ?? null,
+    isReviewed: e.isReviewed,
   }))
 
   const catOptions: FilterOption[] = categories.map(c => ({ id: c.id, name: c.name }))
@@ -123,6 +127,8 @@ export default async function ExpensesPage({ searchParams }: PageProps) {
         currentStaffId={staffId}
         currentFrom={from}
         currentTo={to}
+        currentStatus={status}
+        isAdmin={isAdmin}
       />
     </div>
   )

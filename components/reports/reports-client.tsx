@@ -26,6 +26,9 @@ import {
   FileBarChart2,
   Printer,
   X,
+  Wallet,
+  BadgeDollarSign,
+  ArrowDownLeft,
 } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -34,7 +37,15 @@ export type ReportsClientProps = {
   // P&L
   totalRevenue: number
   totalExpenses: number
-  monthlyBreakdown: { month: string; revenue: number; expenses: number }[]
+  totalSalaryPaid: number
+  totalCompanyBatha: number
+  monthlyBreakdown: {
+    month: string
+    revenue: number
+    expenses: number
+    salaryPaid: number
+    companyBatha: number
+  }[]
   // Party Ledger
   ledgerEntries: {
     id: string
@@ -60,9 +71,12 @@ export type ReportsClientProps = {
     staffId: string
     staffName: string
     jobCount: number
-    bathaEarned: number
+    partyBatha: number
+    companyBatha: number
+    salary: number
+    bathaSettled: number
+    advancesGiven: number
     netPaid: number
-    advancesDeducted: number
   }[]
   // Filter options
   parties: { id: string; name: string }[]
@@ -151,18 +165,23 @@ function PrintHint() {
 
 // ── P&L Panel ─────────────────────────────────────────────────────────────────
 
-type MonthRow = { month: string; revenue: number; expenses: number }
+type MonthRow = ReportsClientProps['monthlyBreakdown'][number]
 
 function PLPanel({
   totalRevenue,
   totalExpenses,
+  totalSalaryPaid,
+  totalCompanyBatha,
   monthlyBreakdown,
 }: {
   totalRevenue: number
   totalExpenses: number
+  totalSalaryPaid: number
+  totalCompanyBatha: number
   monthlyBreakdown: MonthRow[]
 }) {
-  const netProfit = totalRevenue - totalExpenses
+  const totalOutgoing = totalExpenses + totalSalaryPaid + totalCompanyBatha
+  const netProfit = totalRevenue - totalOutgoing
 
   const columns: ColumnDef<MonthRow>[] = [
     {
@@ -187,10 +206,36 @@ function PLPanel({
       ),
     },
     {
+      accessorKey: 'salaryPaid',
+      header: 'Net Staff Pay',
+      cell: ({ getValue }) => {
+        const v = Number(getValue())
+        return v > 0 ? (
+          <span className="text-sm font-semibold text-orange-500">{formatINR(v)}</span>
+        ) : (
+          <span className="text-muted-foreground text-xs">—</span>
+        )
+      },
+    },
+    {
+      accessorKey: 'companyBatha',
+      header: 'Batha',
+      cell: ({ getValue }) => {
+        const v = Number(getValue())
+        return v > 0 ? (
+          <span className="text-sm font-semibold text-violet-500">{formatINR(v)}</span>
+        ) : (
+          <span className="text-muted-foreground text-xs">—</span>
+        )
+      },
+    },
+    {
       id: 'profit',
       header: 'Net Profit',
       cell: ({ row }) => {
-        const profit = row.original.revenue - row.original.expenses
+        const r = row.original
+        const profit =
+          r.revenue - r.expenses - r.salaryPaid - r.companyBatha
         return (
           <span className={cn('text-sm font-bold', profit >= 0 ? 'text-chart-2' : 'text-destructive')}>
             {formatINR(profit)}
@@ -202,11 +247,11 @@ function PLPanel({
 
   return (
     <div className="space-y-5">
-      {/* Stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Stat cards — row 1: revenue & outgoings */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <StatCard
           id="pl-revenue"
-          label="Total Revenue"
+          label="Revenue"
           value={formatINR(totalRevenue)}
           sub="jobs billed"
           icon={TrendingUp}
@@ -215,12 +260,30 @@ function PLPanel({
         />
         <StatCard
           id="pl-expenses"
-          label="Total Expenses"
+          label="Expenses"
           value={formatINR(totalExpenses)}
           sub="costs logged"
           icon={TrendingDown}
           iconClass="text-destructive"
           valueClass="text-destructive"
+        />
+        <StatCard
+          id="pl-salary"
+          label="Net Staff Pay"
+          value={formatINR(totalSalaryPaid)}
+          sub="salary + batha − advances"
+          icon={Wallet}
+          iconClass="text-orange-500"
+          valueClass="text-orange-500"
+        />
+        <StatCard
+          id="pl-batha"
+          label="Company Batha"
+          value={formatINR(totalCompanyBatha)}
+          sub="paid by company"
+          icon={BadgeDollarSign}
+          iconClass="text-violet-500"
+          valueClass="text-violet-500"
         />
         <StatCard
           id="pl-profit"
@@ -250,7 +313,8 @@ function PLPanel({
             {/* Mobile: cards */}
             <div className="space-y-3 md:hidden">
               {monthlyBreakdown.map((row) => {
-                const profit = row.revenue - row.expenses
+                const profit =
+                  row.revenue - row.expenses - row.salaryPaid - row.companyBatha
                 return (
                   <div
                     key={row.month}
@@ -259,7 +323,7 @@ function PLPanel({
                     <p className="font-semibold text-sm text-card-foreground mb-3">
                       {formatMonth(row.month)}
                     </p>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                       <div>
                         <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Revenue</p>
                         <p className="text-sm font-semibold text-chart-1">{formatINR(row.revenue)}</p>
@@ -267,6 +331,14 @@ function PLPanel({
                       <div>
                         <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Expenses</p>
                         <p className="text-sm font-semibold text-destructive">{formatINR(row.expenses)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Net Staff Pay</p>
+                        <p className="text-sm font-semibold text-orange-500">{formatINR(row.salaryPaid)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Batha</p>
+                        <p className="text-sm font-semibold text-violet-500">{formatINR(row.companyBatha)}</p>
                       </div>
                       <div>
                         <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Net</p>
@@ -287,13 +359,18 @@ function PLPanel({
           </div>
 
           {/* Total footer */}
-          <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 flex items-center justify-between">
+          <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
             <span className="text-sm font-medium text-muted-foreground">
               {monthlyBreakdown.length} month{monthlyBreakdown.length !== 1 ? 's' : ''}
             </span>
-            <span className={cn('font-bold text-lg', netProfit >= 0 ? 'text-chart-2' : 'text-destructive')}>
-              Net: {formatINR(netProfit)}
-            </span>
+            <div className="flex items-center gap-4 flex-wrap text-sm">
+              <span className="text-muted-foreground">
+                Outgoing: <span className="font-semibold text-destructive">{formatINR(totalOutgoing)}</span>
+              </span>
+              <span className={cn('font-bold text-lg', netProfit >= 0 ? 'text-chart-2' : 'text-destructive')}>
+                Net: {formatINR(netProfit)}
+              </span>
+            </div>
           </div>
         </>
       )}
@@ -326,7 +403,6 @@ function PartyLedgerPanel({
   const totalCredits = ledgerEntries
     .filter((e) => e.entryType === 'credit')
     .reduce((s, e) => s + e.amount, 0)
-  // Closing balance = last entry's running balance (already seeded from openingBalance)
   const closingBalance =
     ledgerEntries.length > 0 ? ledgerEntries[ledgerEntries.length - 1].runningBalance : openingBalance
 
@@ -393,27 +469,29 @@ function PartyLedgerPanel({
     },
   ]
 
+  const partySelector = (
+    <Select
+      value={currentPartyId || '_none'}
+      onValueChange={(v) => onPartyChange(v === '_none' ? '' : v)}
+    >
+      <SelectTrigger className="w-52" id="party-select">
+        <SelectValue placeholder="Select a party…" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="_none">Select a party…</SelectItem>
+        {parties.map((p) => (
+          <SelectItem key={p.id} value={p.id}>
+            {p.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+
   if (!currentPartyId) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <Select
-            value={currentPartyId || '_none'}
-            onValueChange={(v) => onPartyChange(v === '_none' ? '' : v)}
-          >
-            <SelectTrigger className="w-52" id="party-select">
-              <SelectValue placeholder="Select a party…" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_none">Select a party…</SelectItem>
-              {parties.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <div className="flex items-center gap-3">{partySelector}</div>
         <EmptyState
           icon={BookOpen}
           title="Select a party"
@@ -425,25 +503,7 @@ function PartyLedgerPanel({
 
   return (
     <div className="space-y-5">
-      {/* Party select */}
-      <div className="flex items-center gap-3">
-        <Select
-          value={currentPartyId}
-          onValueChange={(v) => onPartyChange(v === '_none' ? '' : v)}
-        >
-          <SelectTrigger className="w-52" id="party-select">
-            <SelectValue placeholder="Select a party…" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="_none">Select a party…</SelectItem>
-            {parties.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <div className="flex items-center gap-3">{partySelector}</div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -495,11 +555,17 @@ function PartyLedgerPanel({
         <>
           {/* Mobile: cards */}
           <div className="space-y-3 md:hidden">
-            {/* Opening balance row */}
             <div className="rounded-2xl border border-border bg-muted/40 px-4 py-3 flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Opening Balance</p>
-                <p className="text-[10px] text-muted-foreground">Before {new Date(ledgerEntries[0]?.date ?? new Date()).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  Before{' '}
+                  {new Date(ledgerEntries[0]?.date ?? new Date()).toLocaleDateString('en-IN', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
+                </p>
               </div>
               <span className={cn('text-sm font-bold', openingBalance > 0 ? 'text-chart-1' : openingBalance < 0 ? 'text-chart-2' : 'text-muted-foreground')}>
                 {formatINR(openingBalance)}
@@ -535,7 +601,6 @@ function PartyLedgerPanel({
 
           {/* Desktop */}
           <div className="hidden md:block">
-            {/* Opening balance header row above the table */}
             <div className="rounded-t-xl border border-b-0 border-border bg-muted/40 px-4 py-2.5 flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Opening Balance (brought forward)</span>
               <span className={cn('text-sm font-bold', openingBalance > 0 ? 'text-chart-1' : openingBalance < 0 ? 'text-chart-2' : 'text-muted-foreground')}>
@@ -624,7 +689,6 @@ function MachineSummaryPanel({ machineSummary }: { machineSummary: MachineRow[] 
 
   return (
     <div className="space-y-5">
-      {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard
           id="machine-revenue"
@@ -663,7 +727,6 @@ function MachineSummaryPanel({ machineSummary }: { machineSummary: MachineRow[] 
         />
       ) : (
         <>
-          {/* Mobile: cards */}
           <div className="space-y-3 md:hidden">
             {machineSummary.map((m) => {
               const net = m.totalRevenue - m.totalExpenses
@@ -694,12 +757,10 @@ function MachineSummaryPanel({ machineSummary }: { machineSummary: MachineRow[] 
             })}
           </div>
 
-          {/* Desktop */}
           <div className="hidden md:block">
             <DataTable columns={columns} data={machineSummary} />
           </div>
 
-          {/* Footer */}
           <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 flex items-center justify-between">
             <span className="text-sm font-medium text-muted-foreground">
               {machineSummary.length} machine{machineSummary.length !== 1 ? 's' : ''}
@@ -721,9 +782,10 @@ function MachineSummaryPanel({ machineSummary }: { machineSummary: MachineRow[] 
 type StaffRow = ReportsClientProps['staffSummary'][number]
 
 function StaffSummaryPanel({ staffSummary }: { staffSummary: StaffRow[] }) {
-  const totalBatha = staffSummary.reduce((s, r) => s + r.bathaEarned, 0)
+  const totalSalary = staffSummary.reduce((s, r) => s + r.salary, 0)
+  const totalCompanyBatha = staffSummary.reduce((s, r) => s + r.companyBatha, 0)
+  const totalAdvancesGiven = staffSummary.reduce((s, r) => s + r.advancesGiven, 0)
   const totalNetPaid = staffSummary.reduce((s, r) => s + r.netPaid, 0)
-  const totalAdvances = staffSummary.reduce((s, r) => s + r.advancesDeducted, 0)
 
   const columns: ColumnDef<StaffRow>[] = [
     {
@@ -741,8 +803,44 @@ function StaffSummaryPanel({ staffSummary }: { staffSummary: StaffRow[] }) {
       ),
     },
     {
-      accessorKey: 'bathaEarned',
-      header: 'Batha Earned',
+      accessorKey: 'partyBatha',
+      header: 'Party Batha',
+      cell: ({ getValue }) => {
+        const v = Number(getValue())
+        return v > 0 ? (
+          <span className="text-sm font-medium text-muted-foreground">{formatINR(v)}</span>
+        ) : (
+          <span className="text-muted-foreground text-xs">—</span>
+        )
+      },
+    },
+    {
+      accessorKey: 'companyBatha',
+      header: 'Co. Batha',
+      cell: ({ getValue }) => {
+        const v = Number(getValue())
+        return v > 0 ? (
+          <span className="text-sm font-semibold text-violet-500">{formatINR(v)}</span>
+        ) : (
+          <span className="text-muted-foreground text-xs">—</span>
+        )
+      },
+    },
+    {
+      accessorKey: 'salary',
+      header: 'Salary',
+      cell: ({ getValue }) => {
+        const v = Number(getValue())
+        return v > 0 ? (
+          <span className="text-sm font-semibold text-orange-500">{formatINR(v)}</span>
+        ) : (
+          <span className="text-muted-foreground text-xs">—</span>
+        )
+      },
+    },
+    {
+      accessorKey: 'bathaSettled',
+      header: 'Batha Settled',
       cell: ({ getValue }) => {
         const v = Number(getValue())
         return v > 0 ? (
@@ -753,24 +851,25 @@ function StaffSummaryPanel({ staffSummary }: { staffSummary: StaffRow[] }) {
       },
     },
     {
-      accessorKey: 'advancesDeducted',
-      header: 'Advances Deducted',
+      accessorKey: 'advancesGiven',
+      header: 'Advances Given',
       cell: ({ getValue }) => {
         const v = Number(getValue())
         return v > 0 ? (
-          <span className="text-sm font-semibold text-destructive">{formatINR(v)}</span>
+          <span className="text-sm font-semibold text-yellow-500">{formatINR(v)}</span>
         ) : (
           <span className="text-muted-foreground text-xs">—</span>
         )
       },
     },
+
     {
       accessorKey: 'netPaid',
       header: 'Net Paid',
       cell: ({ getValue }) => {
         const v = Number(getValue())
         return v > 0 ? (
-          <span className="text-sm font-bold text-chart-2">{formatINR(v)}</span>
+          <span className="text-sm font-bold text-red-500">{formatINR(v)}</span>
         ) : (
           <span className="text-muted-foreground text-xs">—</span>
         )
@@ -780,34 +879,43 @@ function StaffSummaryPanel({ staffSummary }: { staffSummary: StaffRow[] }) {
 
   return (
     <div className="space-y-5">
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Summary stat cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard
-          id="staff-batha"
-          label="Batha Earned"
-          value={formatINR(totalBatha)}
-          sub="across all staff"
-          icon={TrendingUp}
-          iconClass="text-chart-5"
-          valueClass="text-chart-5"
+          id="staff-salary"
+          label="Total Salary"
+          value={formatINR(totalSalary)}
+          sub="salary after deductions"
+          icon={Wallet}
+          iconClass="text-orange-500"
+          valueClass="text-orange-500"
         />
         <StatCard
-          id="staff-advances"
-          label="Advances Deducted"
-          value={formatINR(totalAdvances)}
-          sub="from settlements"
-          icon={TrendingDown}
-          iconClass="text-destructive"
-          valueClass="text-destructive"
+          id="staff-co-batha"
+          label="Company Batha"
+          value={formatINR(totalCompanyBatha)}
+          sub="paid by company"
+          icon={BadgeDollarSign}
+          iconClass="text-violet-500"
+          valueClass="text-violet-500"
+        />
+        <StatCard
+          id="staff-advances-given"
+          label="Advances Given"
+          value={formatINR(totalAdvancesGiven)}
+          sub="salary advances"
+          icon={ArrowDownLeft}
+          iconClass="text-yellow-500"
+          valueClass="text-yellow-500"
         />
         <StatCard
           id="staff-net"
           label="Total Net Paid"
           value={formatINR(totalNetPaid)}
-          sub="settled in period"
+          sub="cash paid out"
           icon={DollarSign}
-          iconClass="text-chart-2"
-          valueClass="text-chart-2"
+          iconClass="text-red-500"
+          valueClass="text-red-500"
         />
       </div>
 
@@ -815,7 +923,7 @@ function StaffSummaryPanel({ staffSummary }: { staffSummary: StaffRow[] }) {
         <EmptyState
           icon={Users}
           title="No staff data"
-          description="No jobs were logged for any staff in the selected date range."
+          description="No jobs, payments, or advances found for any staff in the selected date range."
         />
       ) : (
         <>
@@ -827,22 +935,41 @@ function StaffSummaryPanel({ staffSummary }: { staffSummary: StaffRow[] }) {
                   <p className="font-semibold text-sm text-card-foreground">{s.staffName}</p>
                   <span className="text-xs text-muted-foreground">{s.jobCount} jobs</span>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                   <div>
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Batha</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Party Batha</p>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      {s.partyBatha > 0 ? formatINR(s.partyBatha) : '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Co. Batha</p>
+                    <p className="text-sm font-semibold text-violet-500">
+                      {s.companyBatha > 0 ? formatINR(s.companyBatha) : '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Salary</p>
+                    <p className="text-sm font-semibold text-orange-500">
+                      {s.salary > 0 ? formatINR(s.salary) : '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Batha Settled</p>
                     <p className="text-sm font-semibold text-chart-5">
-                      {s.bathaEarned > 0 ? formatINR(s.bathaEarned) : '—'}
+                      {s.bathaSettled > 0 ? formatINR(s.bathaSettled) : '—'}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Advances</p>
-                    <p className="text-sm font-semibold text-destructive">
-                      {s.advancesDeducted > 0 ? formatINR(s.advancesDeducted) : '—'}
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Advances Given</p>
+                    <p className="text-sm font-semibold text-yellow-500">
+                      {s.advancesGiven > 0 ? formatINR(s.advancesGiven) : '—'}
                     </p>
                   </div>
-                  <div>
+
+                  <div className="col-span-2 pt-1 border-t border-border mt-1">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Net Paid</p>
-                    <p className="text-sm font-bold text-chart-2">
+                    <p className="text-sm font-bold text-red-500">
                       {s.netPaid > 0 ? formatINR(s.netPaid) : '—'}
                     </p>
                   </div>
@@ -857,11 +984,16 @@ function StaffSummaryPanel({ staffSummary }: { staffSummary: StaffRow[] }) {
           </div>
 
           {/* Footer */}
-          <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 flex items-center justify-between">
+          <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
             <span className="text-sm font-medium text-muted-foreground">
               {staffSummary.length} staff member{staffSummary.length !== 1 ? 's' : ''}
             </span>
-            <span className="font-bold text-lg text-chart-2">{formatINR(totalNetPaid)} paid</span>
+            <div className="flex items-center gap-4 text-sm flex-wrap">
+              <span className="text-muted-foreground">
+                Advances out: <span className="font-semibold text-yellow-500">{formatINR(totalAdvancesGiven)}</span>
+              </span>
+              <span className="font-bold text-lg text-red-500">{formatINR(totalNetPaid)} net paid</span>
+            </div>
           </div>
         </>
       )}
@@ -876,6 +1008,8 @@ function StaffSummaryPanel({ staffSummary }: { staffSummary: StaffRow[] }) {
 export function ReportsClient({
   totalRevenue,
   totalExpenses,
+  totalSalaryPaid,
+  totalCompanyBatha,
   monthlyBreakdown,
   ledgerEntries,
   openingBalance,
@@ -913,7 +1047,6 @@ export function ReportsClient({
   }
 
   function switchTab(tabId: string) {
-    // When switching away from party, keep partyId in URL for back-compat
     router.push(buildUrl({ report: tabId }))
   }
 
@@ -1002,6 +1135,8 @@ export function ReportsClient({
         <PLPanel
           totalRevenue={totalRevenue}
           totalExpenses={totalExpenses}
+          totalSalaryPaid={totalSalaryPaid}
+          totalCompanyBatha={totalCompanyBatha}
           monthlyBreakdown={monthlyBreakdown}
         />
       )}

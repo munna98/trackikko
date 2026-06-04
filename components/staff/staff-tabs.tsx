@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Banknote, Receipt, Plus, Settings, Check, Loader2 } from 'lucide-react'
+import { Banknote, Receipt, Plus, Settings, Check, Loader2, Pencil, Trash2, AlertTriangle } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -311,121 +311,11 @@ export function StaffTabs({
 
       {/* ── Payments ─────────────────────────────────────────── */}
       <TabsContent value="payments">
-        <div className="space-y-4">
-          {isAdmin && (
-            <div className="flex justify-end">
-              <Button size="sm" asChild>
-                <Link href={`/dashboard/staff/${staffId}/record-payment`}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Record Payment
-                </Link>
-              </Button>
-            </div>
-          )}
-
-          {payments.length === 0 ? (
-            <EmptyState
-              icon={Receipt}
-              title="No payments recorded"
-              description="Salary payments made to this staff member will appear here."
-              action={
-                isAdmin ? (
-                  <Button size="sm" asChild>
-                    <Link href={`/dashboard/staff/${staffId}/record-payment`}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Record Payment
-                    </Link>
-                  </Button>
-                ) : undefined
-              }
-            />
-          ) : (
-            <div className="rounded-xl border border-border overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">
-                      Period
-                    </th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">
-                      Days
-                    </th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">
-                      Salary
-                    </th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">
-                      Batha
-                    </th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">
-                      Adv. Ded.
-                    </th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">
-                      Net Paid
-                    </th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">
-                      Account
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {payments.map((p) => (
-                    <tr
-                      key={p.id}
-                      className="bg-card hover:bg-muted/30 transition-colors"
-                    >
-                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                        {formatDate(p.periodFrom)}{' '}
-                        <span className="text-xs">→</span>{' '}
-                        {formatDate(p.periodTo)}
-                      </td>
-                      <td className="px-4 py-3 text-foreground">{p.daysWorked}</td>
-                      <td className="px-4 py-3 text-foreground hidden sm:table-cell">
-                        {formatINR(p.salary)}
-                      </td>
-                      <td className="px-4 py-3 text-foreground hidden sm:table-cell">
-                        {p.bathaTotal > 0 ? formatINR(p.bathaTotal) : '—'}
-                      </td>
-                      <td className="px-4 py-3 text-destructive hidden md:table-cell">
-                        {p.advancesDeducted > 0
-                          ? `−${formatINR(p.advancesDeducted)}`
-                          : '—'}
-                      </td>
-                      <td className="px-4 py-3 font-semibold text-foreground">
-                        {formatINR(p.netPaid)}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">
-                        {p.accountName}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot className="border-t border-border bg-muted/30">
-                  <tr>
-                    <td className="px-4 py-2.5 text-xs font-medium text-muted-foreground">
-                      Total ({payments.length})
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                      {payments.reduce((s, p) => s + p.daysWorked, 0)} days
-                    </td>
-                    <td className="px-4 py-2.5 font-medium text-foreground hidden sm:table-cell">
-                      {formatINR(payments.reduce((s, p) => s + p.salary, 0))}
-                    </td>
-                    <td className="px-4 py-2.5 font-medium text-foreground hidden sm:table-cell">
-                      {formatINR(payments.reduce((s, p) => s + p.bathaTotal, 0))}
-                    </td>
-                    <td className="px-4 py-2.5 text-destructive font-medium hidden md:table-cell">
-                      {formatINR(payments.reduce((s, p) => s + p.advancesDeducted, 0))}
-                    </td>
-                    <td className="px-4 py-2.5 font-bold text-foreground">
-                      {formatINR(payments.reduce((s, p) => s + p.netPaid, 0))}
-                    </td>
-                    <td className="hidden lg:table-cell" />
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          )}
-        </div>
+        <PaymentsTab
+          staffId={staffId}
+          isAdmin={isAdmin}
+          payments={payments}
+        />
       </TabsContent>
 
       {/* ── Defaults ─────────────────────────────────────────── */}
@@ -446,15 +336,15 @@ export function StaffTabs({
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground">Default Machine</label>
                 <Select value={selectedMachineId} onValueChange={setSelectedMachineId}>
-                  <SelectTrigger className="w-full min-h-[48px]">
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select a default machine" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none" className="min-h-[40px] text-muted-foreground italic">
+                    <SelectItem value="none" className=" text-muted-foreground italic">
                       — No Default Machine —
                     </SelectItem>
                     {machines.map((m) => (
-                      <SelectItem key={m.id} value={m.id} className="min-h-[40px]">
+                      <SelectItem key={m.id} value={m.id} >
                         {m.name}
                       </SelectItem>
                     ))}
@@ -469,15 +359,15 @@ export function StaffTabs({
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground">Default Site</label>
                 <Select value={selectedSiteId} onValueChange={setSelectedSiteId}>
-                  <SelectTrigger className="w-full min-h-[48px]">
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select a default site" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none" className="min-h-[40px] text-muted-foreground italic">
+                    <SelectItem value="none" className=" text-muted-foreground italic">
                       — No Default Site —
                     </SelectItem>
                     {sites.map((s) => (
-                      <SelectItem key={s.id} value={s.id} className="min-h-[40px]">
+                      <SelectItem key={s.id} value={s.id} className="">
                         {s.name}
                       </SelectItem>
                     ))}
@@ -492,15 +382,15 @@ export function StaffTabs({
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground">Default Account</label>
                 <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-                  <SelectTrigger className="w-full min-h-[48px]">
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select a default account" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none" className="min-h-[40px] text-muted-foreground italic">
+                    <SelectItem value="none" className=" text-muted-foreground italic">
                       — No Default Account —
                     </SelectItem>
                     {accounts.map((a) => (
-                      <SelectItem key={a.id} value={a.id} className="min-h-[40px]">
+                      <SelectItem key={a.id} value={a.id} className="">
                         {a.name} ({a.type})
                       </SelectItem>
                     ))}
@@ -518,11 +408,11 @@ export function StaffTabs({
               </p>
             )}
 
-            <div className="flex items-center gap-3 pt-2">
+            <div className="flex items-center gap-3">
               <Button
                 onClick={handleSaveDefaults}
                 disabled={isSaving}
-                className="font-semibold min-h-[48px] px-6 transition-all"
+                className="font-semibold px-6 transition-all"
               >
                 {isSaving ? (
                   <>
@@ -543,5 +433,221 @@ export function StaffTabs({
         </Card>
       </TabsContent>
     </Tabs>
+  )
+}
+
+// ── PaymentsTab ────────────────────────────────────────────────────────────────
+type PaymentsTabProps = {
+  staffId: string
+  isAdmin: boolean
+  payments: StaffPaymentRow[]
+}
+
+function PaymentsTab({ staffId, isAdmin, payments }: PaymentsTabProps) {
+  const router = useRouter()
+  const [deletingId, setDeletingId] = React.useState<string | null>(null)
+  const [confirmId, setConfirmId] = React.useState<string | null>(null)
+
+  async function handleDelete(paymentId: string) {
+    setDeletingId(paymentId)
+    try {
+      const res = await fetch(`/api/staff/${staffId}/payments/${paymentId}`, {
+        method: 'DELETE',
+      })
+      if (res.ok) {
+        router.refresh()
+      }
+    } finally {
+      setDeletingId(null)
+      setConfirmId(null)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {isAdmin && (
+        <div className="flex justify-end">
+          <Button size="sm" asChild>
+            <Link href={`/dashboard/staff/${staffId}/record-payment`}>
+              <Plus className="mr-2 h-4 w-4" />
+              Record Payment
+            </Link>
+          </Button>
+        </div>
+      )}
+
+      {payments.length === 0 ? (
+        <EmptyState
+          icon={Receipt}
+          title="No payments recorded"
+          description="Salary payments made to this staff member will appear here."
+          action={
+            isAdmin ? (
+              <Button size="sm" asChild>
+                <Link href={`/dashboard/staff/${staffId}/record-payment`}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Record Payment
+                </Link>
+              </Button>
+            ) : undefined
+          }
+        />
+      ) : (
+        <div className="rounded-xl border border-border overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">
+                  Period
+                </th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">
+                  Days
+                </th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">
+                  Salary
+                </th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">
+                  Batha
+                </th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">
+                  Adv. Ded.
+                </th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">
+                  Net Paid
+                </th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">
+                  Account
+                </th>
+                {isAdmin && (
+                  <th className="px-4 py-3 font-medium text-muted-foreground text-right">
+                    Actions
+                  </th>
+                )}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {payments.map((p) => (
+                <React.Fragment key={p.id}>
+                  <tr className="bg-card hover:bg-muted/30 transition-colors">
+                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                      {formatDate(p.periodFrom)}{' '}
+                      <span className="text-xs">→</span>{' '}
+                      {formatDate(p.periodTo)}
+                    </td>
+                    <td className="px-4 py-3 text-foreground">{p.daysWorked}</td>
+                    <td className="px-4 py-3 text-foreground hidden sm:table-cell">
+                      {formatINR(p.salary)}
+                    </td>
+                    <td className="px-4 py-3 text-foreground hidden sm:table-cell">
+                      {p.bathaTotal > 0 ? formatINR(p.bathaTotal) : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-destructive hidden md:table-cell">
+                      {p.advancesDeducted > 0
+                        ? `−${formatINR(p.advancesDeducted)}`
+                        : '—'}
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-foreground">
+                      {formatINR(p.netPaid)}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">
+                      {p.accountName}
+                    </td>
+                    {isAdmin && (
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                            asChild
+                          >
+                            <Link href={`/dashboard/staff/${staffId}/edit-payment/${p.id}`}>
+                              <Pencil className="h-3.5 w-3.5" />
+                              <span className="sr-only">Edit payment</span>
+                            </Link>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => setConfirmId(p.id)}
+                            disabled={deletingId === p.id}
+                          >
+                            {deletingId === p.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5" />
+                            )}
+                            <span className="sr-only">Delete payment</span>
+                          </Button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                  {/* Inline delete confirmation row */}
+                  {confirmId === p.id && (
+                    <tr className="bg-destructive/5 border-t border-destructive/20">
+                      <td colSpan={isAdmin ? 8 : 7} className="px-4 py-3">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0" />
+                          <span className="text-sm font-medium text-destructive">
+                            Delete this payment? This will reverse the account balance and restore advance deductions.
+                          </span>
+                          <div className="flex gap-2 ml-auto">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setConfirmId(null)}
+                              disabled={!!deletingId}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleDelete(p.id)}
+                              disabled={!!deletingId}
+                            >
+                              {deletingId === p.id ? (
+                                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                              ) : null}
+                              Yes, Delete
+                            </Button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
+            </tbody>
+            <tfoot className="border-t border-border bg-muted/30">
+              <tr>
+                <td className="px-4 py-2.5 text-xs font-medium text-muted-foreground">
+                  Total ({payments.length})
+                </td>
+                <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                  {payments.reduce((s, p) => s + p.daysWorked, 0)} days
+                </td>
+                <td className="px-4 py-2.5 font-medium text-foreground hidden sm:table-cell">
+                  {formatINR(payments.reduce((s, p) => s + p.salary, 0))}
+                </td>
+                <td className="px-4 py-2.5 font-medium text-foreground hidden sm:table-cell">
+                  {formatINR(payments.reduce((s, p) => s + p.bathaTotal, 0))}
+                </td>
+                <td className="px-4 py-2.5 text-destructive font-medium hidden md:table-cell">
+                  {formatINR(payments.reduce((s, p) => s + p.advancesDeducted, 0))}
+                </td>
+                <td className="px-4 py-2.5 font-bold text-foreground">
+                  {formatINR(payments.reduce((s, p) => s + p.netPaid, 0))}
+                </td>
+                <td className="hidden lg:table-cell" />
+                {isAdmin && <td />}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+    </div>
   )
 }

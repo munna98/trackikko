@@ -3,14 +3,12 @@ import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
-const expenseSchema = z.object({
-  expenseCategoryId: z.string().min(1, "Category is required"),
+const advanceSchema = z.object({
+  partyId: z.string().min(1, "Party is required"),
   date: z.string().min(1, "Date is required"),
-  machineId: z.string().optional().nullable(),
-  staffId: z.string().optional().nullable(),
   amount: z.coerce.number().min(1, "Amount must be greater than 0"),
   accountId: z.string().min(1, "Account is required"),
-  notes: z.string().optional(),
+  notes: z.string().optional().nullable(),
 })
 
 export async function PUT(
@@ -25,105 +23,112 @@ export async function PUT(
 
     const isAdmin = user.roleId === 'admin' || user.roleId === 'master_admin'
     if (!isAdmin) {
-      return NextResponse.json({ error: 'Only admins can edit expenses' }, { status: 403 })
+      return NextResponse.json({ error: 'Only admins can edit advances' }, { status: 403 })
     }
 
     const body = await request.json()
-    const parsed = expenseSchema.safeParse(body)
+    const parsed = advanceSchema.safeParse(body)
     
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' }, { status: 400 })
     }
 
-    const { expenseCategoryId, date, machineId, staffId, amount, accountId, notes } = parsed.data
+    const { partyId, date, amount, accountId, notes } = parsed.data
 
-    const oldExpense = await prisma.expense.findUnique({
+    const oldAdvance = await prisma.partyAdvance.findUnique({
       where: { id, businessId: user.businessId },
     })
 
-    if (!oldExpense) {
-      return NextResponse.json({ error: 'Expense not found' }, { status: 404 })
+    if (!oldAdvance) {
+      return NextResponse.json({ error: 'Advance not found' }, { status: 404 })
     }
 
-    // Validation checks for ownership
-    const account = await prisma.account.findUnique({
-      where: { id: accountId, deletedAt: null },
-      select: { businessId: true },
+    // Validation checks for ownership of new party & account
+    const newParty = await prisma.party.findUnique({
+      where: { id: partyId, businessId: user.businessId, deletedAt: null },
+      select: { id: true },
     })
+    if (!newParty) {
+      return NextResponse.json({ error: 'Party not found' }, { status: 404 })
+    }
 
-    if (!account || account.businessId !== user.businessId) {
+    const newAccount = await prisma.account.findUnique({
+      where: { id: accountId, businessId: user.businessId, deletedAt: null },
+      select: { id: true },
+    })
+    if (!newAccount) {
       return NextResponse.json({ error: 'Account not found' }, { status: 404 })
     }
 
-    if (machineId) {
-      const machine = await prisma.machine.findUnique({
-        where: { id: machineId, deletedAt: null },
-        select: { businessId: true },
-      })
-      if (!machine || machine.businessId !== user.businessId) {
-        return NextResponse.json({ error: 'Machine not found' }, { status: 404 })
-      }
-    }
-
     const result = await prisma.$transaction(async (tx) => {
-      const expenseDate = new Date(date)
+      const advanceDate = new Date(date)
+      const oldAmount = oldAdvance.amount.toNumber()
 
-      // 1. Revert old account balance
-      await tx.account.update({
-        where: { id: oldExpense.accountId },
-        data: { currentBalance: { increment: oldExpense.amount } },
+      // 1. Revert old party runningBalance (increment it back since advance decremented it originally)
+      await tx.party.update({
+        where: { id: oldAdvance.partyId },
+        data: { runningBalance: { increment: oldAmount } },
       })
 
-      // 2. Apply new account balance
+      // 2. Revert old account balance (decrement it back since advance incremented it originally)
+      await tx.account.update({
+        where: { id: oldAdvance.accountId },
+        data: { currentBalance: { decrement: oldAmount } },
+      })
+
+      // 3. Apply new party runningBalance (decrement by new amount)
+      await tx.party.update({
+        where: { id: partyId },
+        data: { runningBalance: { decrement: amount } },
+      })
+
+      // 4. Apply new account balance (increment by new amount)
       await tx.account.update({
         where: { id: accountId },
-        data: { currentBalance: { decrement: amount } },
+        data: { currentBalance: { increment: amount } },
       })
 
-      // 3. Update Expense row
-      const expense = await tx.expense.update({
+      // 5. Update PartyAdvance row
+      const updatedAdvance = await tx.partyAdvance.update({
         where: { id },
         data: {
-          expenseCategoryId,
-          date: expenseDate,
-          machineId,
-          staffId,
+          partyId,
+          date: advanceDate,
           amount,
           accountId,
           notes,
         },
       })
 
-      // 4. Update LedgerEntry
+      // 6. Update LedgerEntry
       const ledgerEntry = await tx.ledgerEntry.findFirst({
-        where: { referenceId: id, type: 'expense' }
+        where: { referenceId: id, type: 'party_advance' }
       })
 
       if (ledgerEntry) {
         await tx.ledgerEntry.update({
           where: { id: ledgerEntry.id },
           data: {
-            date: expenseDate,
+            date: advanceDate,
             accountId,
-            machineId,
-            staffId,
+            partyId,
             amount,
-            description: notes ?? `Expense logged`,
+            description: notes ?? `Party advance received`,
           },
         })
       }
 
-      return expense
+      return updatedAdvance
     })
 
     return NextResponse.json({ id: result.id })
   } catch (err) {
-    console.error('[PUT /api/expenses/[id]]', err)
+    console.error('[PUT /api/party-advances/[id]]', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
-const patchExpenseSchema = z.object({
+const patchAdvanceSchema = z.object({
   isReviewed: z.boolean().optional(),
 })
 
@@ -138,25 +143,25 @@ export async function PATCH(
 
     const isAdmin = user.roleId === 'admin' || user.roleId === 'master_admin'
     if (!isAdmin) {
-      return NextResponse.json({ error: 'Only admins can review expenses' }, { status: 403 })
+      return NextResponse.json({ error: 'Only admins can review advances' }, { status: 403 })
     }
 
     const { id } = await params
 
     const body = await request.json()
-    const parsed = patchExpenseSchema.safeParse(body)
+    const parsed = patchAdvanceSchema.safeParse(body)
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' }, { status: 400 })
     }
 
     const { isReviewed } = parsed.data
 
-    const existing = await prisma.expense.findFirst({
+    const existing = await prisma.partyAdvance.findFirst({
       where: { id, businessId: user.businessId, deletedAt: null }
     })
-    if (!existing) return NextResponse.json({ error: 'Expense not found' }, { status: 404 })
+    if (!existing) return NextResponse.json({ error: 'Advance not found' }, { status: 404 })
 
-    await prisma.expense.update({
+    await prisma.partyAdvance.update({
       where: { id },
       data: {
         ...(isReviewed !== undefined && { isReviewed })
@@ -165,7 +170,7 @@ export async function PATCH(
 
     return NextResponse.json({ success: true })
   } catch (err) {
-    console.error('[PATCH /api/expenses/[id]]', err)
+    console.error('[PATCH /api/party-advances/[id]]', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

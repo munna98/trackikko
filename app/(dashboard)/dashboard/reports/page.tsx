@@ -38,27 +38,44 @@ export default async function ReportsPage({ searchParams }: PageProps) {
 
   // ── Parallel data fetch ────────────────────────────────────────────────────
   const [
+    // P&L totals
     revenueAgg,
     expenseAgg,
+    salaryPaidAgg,
+    companyBathaAgg,
+
     // P&L monthly: groupBy day then bucket in JS
     jobsByDay,
     expensesByDay,
+    salaryByCreatedAt,
+    companyBathaByDay,
+
     // Party ledger (in-period entries)
     ledgerRaw,
     // Party ledger opening balance: sum debits / credits BEFORE fromDate
     openingDebitsAgg,
     openingCreditsAgg,
+
     // Machine summary
     jobsByMachine,
     expensesByMachine,
     machines,
-    // Staff summary
-    jobsByStaff,
+
+    // Staff summary — jobs split by batha payer
+    jobsByStaffPartyBatha,
+    jobsByStaffCompanyBatha,
+    jobsByStaffCount,
+    // Staff payments (with full breakdown)
     staffPayments,
+    // Salary advances per staff
+    salaryAdvancesByStaff,
+    // All staff users
     staffUsers,
+
     // Filter options
     partiesAll,
   ] = await Promise.all([
+
     // ── P&L totals ────────────────────────────────────────────────────────────
     prisma.job.aggregate({
       where: { businessId, deletedAt: null, date: { gte: fromDate, lte: toDate } },
@@ -68,8 +85,29 @@ export default async function ReportsPage({ searchParams }: PageProps) {
       where: { businessId, deletedAt: null, date: { gte: fromDate, lte: toDate } },
       _sum: { amount: true },
     }),
+    // Salary paid total (netPaid = actual cash out)
+    prisma.staffPayment.aggregate({
+      where: {
+        businessId,
+        deletedAt: null,
+        periodFrom: { gte: fromDate },
+        periodTo: { lte: toDate },
+      },
+      _sum: { netPaid: true },
+    }),
+    // Company-paid batha total (settled only)
+    prisma.job.aggregate({
+      where: {
+        businessId,
+        deletedAt: null,
+        date: { gte: fromDate, lte: toDate },
+        bathaPaidBy: 'company',
+        bathaPaid: true,
+      },
+      _sum: { batha: true },
+    }),
 
-    // ── P&L monthly breakdown (groupBy exact date, merge by YYYY-MM in JS) ───
+    // ── P&L monthly breakdowns ────────────────────────────────────────────────
     prisma.job.groupBy({
       by: ['date'],
       where: { businessId, deletedAt: null, date: { gte: fromDate, lte: toDate } },
@@ -80,24 +118,42 @@ export default async function ReportsPage({ searchParams }: PageProps) {
       where: { businessId, deletedAt: null, date: { gte: fromDate, lte: toDate } },
       _sum: { amount: true },
     }),
+    // Salary by createdAt (when cash left, not pay period start)
+    prisma.staffPayment.findMany({
+      where: {
+        businessId,
+        deletedAt: null,
+        periodFrom: { gte: fromDate },
+        periodTo: { lte: toDate },
+      },
+      select: { createdAt: true, netPaid: true },
+    }),
+    // Company batha by date (settled only)
+    prisma.job.groupBy({
+      by: ['date'],
+      where: {
+        businessId,
+        deletedAt: null,
+        date: { gte: fromDate, lte: toDate },
+        bathaPaidBy: 'company',
+        bathaPaid: true,
+      },
+      _sum: { batha: true },
+    }),
 
-    // ── Party ledger (in-period entries) ─────────────────────────────────────
+    // ── Party ledger ─────────────────────────────────────────────────────────
     partyId
       ? prisma.ledgerEntry.findMany({
           where: { businessId, partyId, date: { gte: fromDate, lte: toDate } },
           orderBy: { date: 'asc' },
         })
       : Promise.resolve([]),
-
-    // ── Party opening balance: all debits before fromDate ─────────────────────
     partyId
       ? prisma.ledgerEntry.aggregate({
           where: { businessId, partyId, date: { lt: fromDate }, entryType: 'debit' },
           _sum: { amount: true },
         })
       : Promise.resolve({ _sum: { amount: null } }),
-
-    // ── Party opening balance: all credits before fromDate ────────────────────
     partyId
       ? prisma.ledgerEntry.aggregate({
           where: { businessId, partyId, date: { lt: fromDate }, entryType: 'credit' },
@@ -105,7 +161,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
         })
       : Promise.resolve({ _sum: { amount: null } }),
 
-    // ── Machine revenue summary ───────────────────────────────────────────────
+    // ── Machine summary ───────────────────────────────────────────────────────
     prisma.job.groupBy({
       by: ['machineId'],
       where: { businessId, deletedAt: null, date: { gte: fromDate, lte: toDate } },
@@ -129,13 +185,37 @@ export default async function ReportsPage({ searchParams }: PageProps) {
     }),
 
     // ── Staff summary ─────────────────────────────────────────────────────────
+    // Party-paid batha per staff (informational — party owes staff)
     prisma.job.groupBy({
       by: ['staffId'],
-      where: { businessId, deletedAt: null, date: { gte: fromDate, lte: toDate } },
+      where: {
+        businessId,
+        deletedAt: null,
+        date: { gte: fromDate, lte: toDate },
+        bathaPaidBy: 'party',
+      },
       _sum: { batha: true },
       _count: { _all: true },
     }),
-    // staffPayments filtered by pay period overlapping selected date range
+    // Company-paid batha per staff (actual company cost)
+    prisma.job.groupBy({
+      by: ['staffId'],
+      where: {
+        businessId,
+        deletedAt: null,
+        date: { gte: fromDate, lte: toDate },
+        bathaPaidBy: 'company',
+        bathaPaid: true,
+      },
+      _sum: { batha: true },
+    }),
+    // Job count per staff (all jobs regardless of batha payer)
+    prisma.job.groupBy({
+      by: ['staffId'],
+      where: { businessId, deletedAt: null, date: { gte: fromDate, lte: toDate } },
+      _count: { _all: true },
+    }),
+    // Staff payments with full breakdown
     prisma.staffPayment.groupBy({
       by: ['staffId'],
       where: {
@@ -144,8 +224,15 @@ export default async function ReportsPage({ searchParams }: PageProps) {
         periodFrom: { gte: fromDate },
         periodTo: { lte: toDate },
       },
-      _sum: { netPaid: true, advancesDeducted: true },
+      _sum: { netPaid: true, advancesDeducted: true, salary: true, bathaTotal: true },
     }),
+    // Salary advances per staff
+    prisma.salaryAdvance.groupBy({
+      by: ['staffId'],
+      where: { businessId, deletedAt: null, date: { gte: fromDate, lte: toDate } },
+      _sum: { amount: true },
+    }),
+    // All staff users (union of job-havers + payment-receivers + advance-receivers)
     prisma.user.findMany({
       where: { businessId, deletedAt: null, roleId: { not: 'master_admin' } },
       select: { id: true, name: true },
@@ -163,42 +250,64 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   // ── Serialise P&L totals ───────────────────────────────────────────────────
   const totalRevenue = revenueAgg._sum.amount?.toNumber() ?? 0
   const totalExpenses = expenseAgg._sum.amount?.toNumber() ?? 0
+  const totalSalaryPaid = salaryPaidAgg._sum.netPaid?.toNumber() ?? 0
+  const totalCompanyBatha = companyBathaAgg._sum.batha?.toNumber() ?? 0
 
   // ── Monthly breakdown: bucket by YYYY-MM ──────────────────────────────────
   const revenueByMonth: Record<string, number> = {}
   for (const row of jobsByDay) {
-    const key = new Date(row.date).toISOString().slice(0, 7) // "YYYY-MM"
+    const key = new Date(row.date).toISOString().slice(0, 7)
     revenueByMonth[key] = (revenueByMonth[key] ?? 0) + (row._sum.amount?.toNumber() ?? 0)
   }
+
   const expensesByMonth: Record<string, number> = {}
   for (const row of expensesByDay) {
     const key = new Date(row.date).toISOString().slice(0, 7)
     expensesByMonth[key] = (expensesByMonth[key] ?? 0) + (row._sum.amount?.toNumber() ?? 0)
   }
+
+  // Salary: use createdAt for accurate month bucketing
+  const salaryByMonth: Record<string, number> = {}
+  for (const row of salaryByCreatedAt) {
+    const key = new Date(row.createdAt).toISOString().slice(0, 7)
+    salaryByMonth[key] = (salaryByMonth[key] ?? 0) + (row.netPaid?.toNumber() ?? 0)
+  }
+
+  const companyBathaByMonth: Record<string, number> = {}
+  for (const row of companyBathaByDay) {
+    const key = new Date(row.date).toISOString().slice(0, 7)
+    companyBathaByMonth[key] = (companyBathaByMonth[key] ?? 0) + (row._sum.batha?.toNumber() ?? 0)
+  }
+
   const allMonths = Array.from(
-    new Set([...Object.keys(revenueByMonth), ...Object.keys(expensesByMonth)])
-  ).sort()
+    new Set([
+      ...Object.keys(revenueByMonth),
+      ...Object.keys(expensesByMonth),
+      ...Object.keys(salaryByMonth),
+      ...Object.keys(companyBathaByMonth),
+    ])
+  ).sort((a, b) => b.localeCompare(a))
+
   const monthlyBreakdown = allMonths.map((month) => ({
     month,
     revenue: revenueByMonth[month] ?? 0,
     expenses: expensesByMonth[month] ?? 0,
+    salaryPaid: salaryByMonth[month] ?? 0,
+    companyBatha: companyBathaByMonth[month] ?? 0,
   }))
 
-  // ── Party opening balance (balance before fromDate) ──────────────────────
+  // ── Party opening balance ─────────────────────────────────────────────────
   const openingBalance = partyId
     ? (openingDebitsAgg._sum.amount?.toNumber() ?? 0) -
       (openingCreditsAgg._sum.amount?.toNumber() ?? 0)
     : 0
 
-  // ── Serialise ledger entries + compute running balance ────────────────────
-  // Running balance starts from the opening balance so context is preserved
-  // even when the date range doesn't include older job/advance entries.
+  // ── Serialise ledger entries + running balance ────────────────────────────
   let runningBalance = openingBalance
   type LedgerRawRow = (typeof ledgerRaw)[number]
   const ledgerEntries: ReportsClientProps['ledgerEntries'] = ledgerRaw.map(
     (e: LedgerRawRow) => {
       const amt = e.amount.toNumber()
-      // debit = party owes more (job billed), credit = reduces outstanding
       if (e.entryType === 'debit') runningBalance += amt
       else runningBalance -= amt
       return {
@@ -233,30 +342,69 @@ export default async function ReportsPage({ searchParams }: PageProps) {
       totalRevenue: row._sum.amount?.toNumber() ?? 0,
       totalExpenses: expByMachineMap[row.machineId] ?? 0,
     }))
-    .sort((a: ReportsClientProps['machineSummary'][number], b: ReportsClientProps['machineSummary'][number]) => b.totalRevenue - a.totalRevenue)
+    .sort(
+      (a: ReportsClientProps['machineSummary'][number], b: ReportsClientProps['machineSummary'][number]) =>
+        b.totalRevenue - a.totalRevenue
+    )
 
   // ── Serialise staff summary ───────────────────────────────────────────────
-  const staffPayMap: Record<string, { netPaid: number; advancesDeducted: number }> = {}
+  // Build lookup maps
+  const partyBathaMap: Record<string, number> = {}
+  for (const row of jobsByStaffPartyBatha) {
+    partyBathaMap[row.staffId] = row._sum.batha?.toNumber() ?? 0
+  }
+
+  const companyBathaPerStaffMap: Record<string, number> = {}
+  for (const row of jobsByStaffCompanyBatha) {
+    companyBathaPerStaffMap[row.staffId] = row._sum.batha?.toNumber() ?? 0
+  }
+
+  const jobCountMap: Record<string, number> = {}
+  for (const row of jobsByStaffCount) {
+    jobCountMap[row.staffId] = row._count._all
+  }
+
+  const staffPayMap: Record<
+    string,
+    { netPaid: number; advancesDeducted: number; salary: number; bathaTotal: number }
+  > = {}
   for (const row of staffPayments) {
     staffPayMap[row.staffId] = {
       netPaid: row._sum.netPaid?.toNumber() ?? 0,
       advancesDeducted: row._sum.advancesDeducted?.toNumber() ?? 0,
+      salary: row._sum.salary?.toNumber() ?? 0,
+      bathaTotal: row._sum.bathaTotal?.toNumber() ?? 0,
     }
   }
+
+  const advancesGivenMap: Record<string, number> = {}
+  for (const row of salaryAdvancesByStaff) {
+    advancesGivenMap[row.staffId] = row._sum.amount?.toNumber() ?? 0
+  }
+
   const staffNameMap: Record<string, string> = {}
   for (const s of staffUsers) staffNameMap[s.id] = s.name
 
-  type JobByStaffRow = (typeof jobsByStaff)[number]
-  const staffSummary: ReportsClientProps['staffSummary'] = jobsByStaff
-    .map((row: JobByStaffRow) => ({
-      staffId: row.staffId,
-      staffName: staffNameMap[row.staffId] ?? row.staffId,
-      jobCount: row._count._all,
-      bathaEarned: row._sum.batha?.toNumber() ?? 0,
-      netPaid: staffPayMap[row.staffId]?.netPaid ?? 0,
-      advancesDeducted: staffPayMap[row.staffId]?.advancesDeducted ?? 0,
+  // Union of all staff IDs that appear in any of the 3 sources
+  const allStaffIds = new Set([
+    ...jobsByStaffCount.map((r) => r.staffId),
+    ...staffPayments.map((r) => r.staffId),
+    ...salaryAdvancesByStaff.map((r) => r.staffId),
+  ])
+
+  const staffSummary: ReportsClientProps['staffSummary'] = Array.from(allStaffIds)
+    .map((staffId) => ({
+      staffId,
+      staffName: staffNameMap[staffId] ?? staffId,
+      jobCount: jobCountMap[staffId] ?? 0,
+      partyBatha: partyBathaMap[staffId] ?? 0,
+      companyBatha: companyBathaPerStaffMap[staffId] ?? 0,
+      salary: (staffPayMap[staffId]?.salary ?? 0) - (staffPayMap[staffId]?.advancesDeducted ?? 0),
+      bathaSettled: staffPayMap[staffId]?.bathaTotal ?? 0,
+      advancesGiven: advancesGivenMap[staffId] ?? 0,
+      netPaid: staffPayMap[staffId]?.netPaid ?? 0,
     }))
-    .sort((a: ReportsClientProps['staffSummary'][number], b: ReportsClientProps['staffSummary'][number]) => b.bathaEarned - a.bathaEarned)
+    .sort((a, b) => b.netPaid - a.netPaid || a.staffName.localeCompare(b.staffName))
 
   // ── Filter options ────────────────────────────────────────────────────────
   const parties = partiesAll.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name }))
@@ -266,6 +414,8 @@ export default async function ReportsPage({ searchParams }: PageProps) {
     <ReportsClient
       totalRevenue={totalRevenue}
       totalExpenses={totalExpenses}
+      totalSalaryPaid={totalSalaryPaid}
+      totalCompanyBatha={totalCompanyBatha}
       monthlyBreakdown={monthlyBreakdown}
       ledgerEntries={ledgerEntries}
       openingBalance={openingBalance}

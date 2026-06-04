@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { X, Receipt, Pencil } from 'lucide-react'
+import { X, Receipt, Pencil, ClockCheck, CircleCheckBig } from 'lucide-react'
 import { formatINR, formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 
@@ -33,6 +33,7 @@ export type ExpenseRow = {
   notes: string | null
   recordedBy: string | null
   recorderName: string | null
+  isReviewed: boolean
 }
 
 export type FilterOption = {
@@ -50,9 +51,21 @@ type ExpensesListClientProps = {
   currentStaffId?: string
   currentFrom?: string
   currentTo?: string
+  currentStatus?: string
+  isAdmin: boolean
 }
 
-function ExpenseCard({ expense }: { expense: ExpenseRow }) {
+function ExpenseCard({
+  expense,
+  onToggle,
+  isUpdating,
+  isAdmin,
+}: {
+  expense: ExpenseRow
+  onToggle: (id: string, currentStatus: boolean) => void
+  isUpdating: boolean
+  isAdmin: boolean
+}) {
   return (
     <div className="block rounded-2xl border border-border bg-card p-4">
       <div className="flex items-start justify-between gap-2 mb-2">
@@ -70,6 +83,30 @@ function ExpenseCard({ expense }: { expense: ExpenseRow }) {
           <span className="text-xs text-muted-foreground whitespace-nowrap">
             {formatDate(expense.date)}
           </span>
+          {isAdmin && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-6 w-6 rounded-lg transition-all",
+                expense.isReviewed 
+                  ? "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50" 
+                  : "text-muted-foreground hover:text-amber-600 hover:bg-amber-50"
+              )}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                onToggle(expense.id, expense.isReviewed)
+              }}
+              disabled={isUpdating}
+            >
+              {expense.isReviewed ? (
+                <CircleCheckBig className="h-4 w-4" />
+              ) : (
+                <ClockCheck className="h-4 w-4" />
+              )}
+            </Button>
+          )}
           <Button variant="ghost" size="icon" className="h-6 w-6 -mr-2" asChild>
             <Link href={`/dashboard/expenses/${expense.id}/edit`}>
               <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
@@ -105,6 +142,8 @@ export function ExpensesListClient({
   currentStaffId = '',
   currentFrom = '',
   currentTo = '',
+  currentStatus = '',
+  isAdmin,
 }: ExpensesListClientProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -114,15 +153,58 @@ export function ExpensesListClient({
   const [staffId, setStaffId] = React.useState(currentStaffId)
   const [from, setFrom] = React.useState(currentFrom)
   const [to, setTo] = React.useState(currentTo)
+  const [status, setStatus] = React.useState(currentStatus)
+
+  const [expensesList, setExpensesList] = React.useState(expenses)
+  const [updatingIds, setUpdatingIds] = React.useState<Set<string>>(new Set())
+
+  React.useEffect(() => {
+    setExpensesList(expenses)
+  }, [expenses])
+
+  const toggleReviewed = async (expenseId: string, currentStatus: boolean) => {
+    if (updatingIds.has(expenseId)) return
+    
+    // Optimistic UI update
+    setExpensesList(prev => prev.map(e => e.id === expenseId ? { ...e, isReviewed: !currentStatus } : e))
+    setUpdatingIds(prev => {
+      const next = new Set(prev)
+      next.add(expenseId)
+      return next
+    })
+
+    try {
+      const res = await fetch(`/api/expenses/${expenseId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isReviewed: !currentStatus }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to update status')
+      }
+    } catch (err) {
+      console.error(err)
+      // Revert optimistic update
+      setExpensesList(prev => prev.map(e => e.id === expenseId ? { ...e, isReviewed: currentStatus } : e))
+    } finally {
+      setUpdatingIds(prev => {
+        const next = new Set(prev)
+        next.delete(expenseId)
+        return next
+      })
+    }
+  }
 
   function buildUrl(overrides: Record<string, string>) {
     const params = new URLSearchParams()
-    const vals = { categoryId, machineId, staffId, from, to, ...overrides }
+    const vals = { categoryId, machineId, staffId, from, to, status, ...overrides }
     if (vals.categoryId) params.set('categoryId', vals.categoryId)
     if (vals.machineId) params.set('machineId', vals.machineId)
     if (vals.staffId) params.set('staffId', vals.staffId)
     if (vals.from) params.set('from', vals.from)
     if (vals.to) params.set('to', vals.to)
+    if (vals.status) params.set('status', vals.status)
     return `${pathname}?${params.toString()}`
   }
 
@@ -136,10 +218,11 @@ export function ExpensesListClient({
     setStaffId('')
     setFrom('')
     setTo('')
+    setStatus('')
     router.push(pathname)
   }
 
-  const hasFilters = !!(currentCategoryId || currentMachineId || currentStaffId || currentFrom || currentTo)
+  const hasFilters = !!(currentCategoryId || currentMachineId || currentStaffId || currentFrom || currentTo || currentStatus)
 
   const columns: ColumnDef<ExpenseRow>[] = [
     {
@@ -198,8 +281,31 @@ export function ExpensesListClient({
       id: 'actions',
       cell: ({ row }) => {
         const expense = row.original
+        const isReviewed = expense.isReviewed
+        const isUpdating = updatingIds.has(expense.id)
         return (
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-end gap-2">
+            {isAdmin && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "h-8 w-8 rounded-lg transition-all",
+                  isReviewed 
+                    ? "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50" 
+                    : "text-muted-foreground hover:text-amber-600 hover:bg-amber-50"
+                )}
+                onClick={() => toggleReviewed(expense.id, isReviewed)}
+                disabled={isUpdating}
+                title={isReviewed ? "Reviewed" : "Pending Review"}
+              >
+                {isReviewed ? (
+                  <CircleCheckBig className="h-4 w-4" />
+                ) : (
+                  <ClockCheck className="h-4 w-4" />
+                )}
+              </Button>
+            )}
             <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
               <Link href={`/dashboard/expenses/${expense.id}/edit`}>
                 <Pencil className="w-4 h-4 text-muted-foreground hover:text-foreground" />
@@ -275,6 +381,24 @@ export function ExpensesListClient({
           </SelectContent>
         </Select>
 
+        <Select
+          value={status || '_all'}
+          onValueChange={(v) => {
+            const val = v === '_all' ? '' : v
+            setStatus(val)
+            applyFilter('status', val)
+          }}
+        >
+          <SelectTrigger className="w-40" id="filter-status">
+            <SelectValue placeholder="All status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="_all">All status</SelectItem>
+            <SelectItem value="unreviewed">Pending Review</SelectItem>
+            <SelectItem value="reviewed">Reviewed</SelectItem>
+          </SelectContent>
+        </Select>
+
         <Input
           id="filter-from"
           type="date"
@@ -324,14 +448,20 @@ export function ExpensesListClient({
         <>
           {/* Mobile: card list */}
           <div className="space-y-3 md:hidden">
-            {expenses.map((expense) => (
-              <ExpenseCard key={expense.id} expense={expense} />
+            {expensesList.map((expense) => (
+              <ExpenseCard
+                key={expense.id}
+                expense={expense}
+                onToggle={toggleReviewed}
+                isUpdating={updatingIds.has(expense.id)}
+                isAdmin={isAdmin}
+              />
             ))}
           </div>
 
           {/* Desktop: data table */}
           <div className="hidden md:block">
-            <DataTable columns={columns} data={expenses} />
+            <DataTable columns={columns} data={expensesList} />
           </div>
 
           {/* Total Footer */}

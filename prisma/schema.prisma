@@ -455,6 +455,7 @@ model Expense {
   accountId         String    @map("account_id") @db.Uuid
   notes             String?
   recordedBy        String?   @map("recorded_by")
+  isReviewed        Boolean   @default(false) @map("is_reviewed")
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime  @default(now()) @map("updated_at") @db.Timestamptz
   deletedAt         DateTime? @map("deleted_at") @db.Timestamptz
@@ -558,6 +559,7 @@ model PartyAdvance {
   accountId  String    @map("account_id") @db.Uuid
   notes      String?
   recordedBy String?   @map("recorded_by")
+  isReviewed Boolean   @default(false) @map("is_reviewed")
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt  DateTime  @default(now()) @map("updated_at") @db.Timestamptz
   deletedAt  DateTime? @map("deleted_at") @db.Timestamptz
